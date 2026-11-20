@@ -637,7 +637,7 @@ body{background:radial-gradient(140% 520px at 50% -10%,var(--surface-2) 0%,trans
   // アプリに戻ってきたら最新を読み込む
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && loggedIn() && !busy && !pending) load(); });
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).catch(() => {});
 
   // ===== 起動 =====
   show();
