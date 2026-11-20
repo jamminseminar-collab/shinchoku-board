@@ -60,6 +60,7 @@ h1{font-weight:800;font-size:24px;margin:0}
 .ttl{overflow-wrap:anywhere}
 .sub{font-size:13px;color:var(--muted)}
 .sub .due{color:var(--warn);font-weight:700}
+.go{align-self:flex-start;margin-top:6px;font-size:14px;font-weight:700;color:var(--accent);text-decoration:none;padding:6px 12px;border:1.5px solid var(--accent);border-radius:999px}
 .empty{font-size:14px;color:var(--muted);padding:14px}
 .toggle{font-size:14px;color:var(--muted);text-align:left;padding:6px 2px}
 .legend{display:flex;gap:14px;font-size:12px;color:var(--muted);align-items:center}
@@ -361,6 +362,14 @@ h1{font-weight:800;font-size:24px;margin:0}
     else if (opts.checkable && it.kind) subs.push(it.kind);
     const s = subs.filter(Boolean);
     if (s.length) { const sub = el("div",{cls:"sub"}); s.forEach((x,i)=>{ if(i) sub.append("・"); sub.append(x); }); body.appendChild(sub); }
+    // 作業中のチャットへのリンク（ボードに「｜リンク：https://…」と書かれているとき）
+    const link = (it.fields["リンク"] || "").trim();
+    if (/^https:\/\/claude\.ai\//.test(link)) {
+      body.appendChild(el("a", { cls:"go", href: link, target:"_blank", rel:"noopener", text:"Claudeのチャットを開く ›" }));
+    } else if (opts.ask) {
+      const msg = `進み具合ボード（Dropbox /AI_Knowledge/06_プロジェクト/00_進み具合ボード.md）のこのタスクを進めてください。\n${it.raw.replace(/^\s*-\s/, "")}`;
+      body.appendChild(el("a", { cls:"go", href: "https://claude.ai/new?q=" + encodeURIComponent(msg), target:"_blank", rel:"noopener", text:"Claudeに頼む ›" }));
+    }
     r.appendChild(body);
     return r;
   }
@@ -387,7 +396,7 @@ h1{font-weight:800;font-size:24px;margin:0}
       done.forEach(x => list.appendChild(row(x.it,{done:true})));
       dg.appendChild(list);
     }
-    $("groups").replaceChildren(group("自分でやること", mine, { checkable:true }), group("まだ手をつけていない", todo, { checkable:true, hint:"Claudeに「これ進めて」と声をかけると始まります" }), group("AIが作業中", ai, {}), dg);
+    $("groups").replaceChildren(group("自分でやること", mine, { checkable:true }), group("まだ手をつけていない", todo, { checkable:true, ask:true, hint:"「Claudeに頼む」を押すと、Claudeのチャットが開きます" }), group("AIが作業中", ai, {}), dg);
   }
   function show(){
     const ok = loggedIn();
