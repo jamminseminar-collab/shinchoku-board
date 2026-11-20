@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>進み具合ボード</title>
+<meta name="theme-color" content="#1f7a63">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="進み具合">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="manifest" href="manifest.json">
+<style>
+:root{
+  --bg:#f4f6f5; --surface:#ffffff; --line:#e1e6e4; --fg:#1d2522; --muted:#6b7773;
+  --accent:#1f7a63; --accent-ink:#ffffff; --hon:#3563b0; --fuku:#c0631f; --warn:#c0392b;
+  --font:"Hiragino Sans","Hiragino Kaku Gothic ProN","BIZ UDPGothic","Yu Gothic","Meiryo",sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#131917; --surface:#1c2421; --line:#2c3733; --fg:#e7eeeb; --muted:#9aa8a3;
+  --accent:#5cc4a8; --accent-ink:#0d1a16; --hon:#93b3f0; --fuku:#f2a86f; --warn:#ff8a7a; color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:16px;line-height:1.55;-webkit-text-size-adjust:100%;
+  padding-top:calc(16px + env(safe-area-inset-top,0px));padding-bottom:calc(100px + env(safe-area-inset-bottom,0px));
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:22px}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent}
+button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:8px}
+button:disabled{opacity:.45}
+header{display:flex;justify-content:space-between;align-items:center;gap:8px}
+h1{font-weight:800;font-size:24px;margin:0}
+.date{color:var(--muted);font-size:14px}
+.icons{display:flex;gap:2px}
+.iconbtn{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:var(--muted)}
+.iconbtn svg{width:22px;height:22px}
+.iconbtn.on{color:var(--accent);background:var(--surface)}
+.spin svg{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.tabs{display:flex;background:var(--line);border-radius:12px;padding:3px}
+.tabs button{flex:1;padding:9px 0;border-radius:9px;font-weight:700;color:var(--muted);font-size:15px}
+.tabs button[aria-pressed="true"]{background:var(--surface);color:var(--fg);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+#groups{display:flex;flex-direction:column;gap:22px}
+.group{display:flex;flex-direction:column;gap:8px}
+.group h2{font-size:17px;margin:0 0 2px;display:flex;align-items:baseline;gap:8px}
+.group h2 small{font-size:13px;color:var(--muted);font-weight:400}
+.list{background:var(--surface);border-radius:14px;overflow:hidden}
+.row{display:flex;gap:12px;align-items:flex-start;padding:14px;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.check{flex:none;width:28px;height:28px;border-radius:50%;border:2px solid var(--muted);display:grid;place-items:center;margin-top:-2px}
+.check svg{width:16px;height:16px;opacity:0}
+.row.checked .check{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.row.checked .check svg{opacity:1}
+.row.checked .ttl{color:var(--muted);text-decoration:line-through}
+.dotk{flex:none;width:8px;height:8px;border-radius:50%;margin-top:9px}
+.dotk.hon{background:var(--hon)} .dotk.fuku{background:var(--fuku)} .dotk.none{background:var(--muted)}
+.body{min-width:0;flex:1;display:flex;flex-direction:column;gap:2px}
+.ttl{overflow-wrap:anywhere}
+.sub{font-size:13px;color:var(--muted)}
+.sub .due{color:var(--warn);font-weight:700}
+.empty{font-size:14px;color:var(--muted);padding:14px}
+.toggle{font-size:14px;color:var(--muted);text-align:left;padding:6px 2px}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--muted);align-items:center}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{width:8px;height:8px;border-radius:50%;display:inline-block}
+.note{font-size:13px;color:var(--muted);text-align:center}
+.note.err{color:var(--warn)}
+.login{background:var(--surface);border-radius:16px;padding:22px 18px;display:flex;flex-direction:column;gap:14px;text-align:center}
+.login p{margin:0;color:var(--muted);font-size:15px}
+.btn-main{background:var(--accent);color:var(--accent-ink);font-weight:700;padding:14px;border-radius:12px;font-size:16px}
+.btn-sub{background:var(--line);font-weight:700;padding:12px;border-radius:12px}
+.fab{position:fixed;right:calc(20px + env(safe-area-inset-right,0px));bottom:calc(20px + env(safe-area-inset-bottom,0px));
+  width:60px;height:60px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+.fab svg{width:28px;height:28px}
+.sheet{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-radius:18px 18px 0 0;box-shadow:0 -6px 24px rgba(0,0,0,.15);
+  padding:18px max(16px,env(safe-area-inset-right,0px)) calc(18px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:12px;z-index:5}
+.sheet h3{margin:0;font-size:17px}
+.sheet input{font:inherit;font-size:16px;width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
+.kinds{display:flex;gap:8px}
+.kinds button{flex:1;padding:10px;border-radius:10px;border:2px solid var(--line);font-weight:700;color:var(--muted)}
+.kinds button[aria-pressed="true"][data-k="本業"]{border-color:var(--hon);color:var(--hon)}
+.kinds button[aria-pressed="true"][data-k="副業"]{border-color:var(--fuku);color:var(--fuku)}
+.sheet-acts{display:flex;gap:8px}
+.sheet-acts button{flex:1}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(92px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);
+  padding:10px 8px 10px 16px;border-radius:12px;font-size:15px;display:flex;align-items:center;gap:10px;max-width:calc(100% - 32px);z-index:6}
+.toast button{color:var(--accent);font-weight:700;padding:4px 10px}
+.foot{display:flex;justify-content:center}
+.foot button{font-size:12px;color:var(--muted);text-decoration:underline;padding:6px}
+[hidden]{display:none!important}
+@media (prefers-reduced-motion:reduce){.spin svg{animation:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>今日のやること</h1>
+      <div class="date" id="today"></div>
+    </div>
+    <div class="icons">
+      <button class="iconbtn" id="speak" type="button" aria-label="自分でやることを読み上げる" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/><path d="M19 6a8.5 8.5 0 0 1 0 12"/></svg>
+      </button>
+      <button class="iconbtn" id="reload" type="button" aria-label="最新を読み込む" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 4v5h-5"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <section class="login" id="login" hidden>
+    <p>最初の1回だけ、Dropboxにログインしてください。<br>次からはアイコンを押すだけで開きます。</p>
+    <button class="btn-main" id="loginBtn" type="button">Dropboxにログインする</button>
+  </section>
+
+  <div id="main" hidden>
+    <div class="wrap">
+      <div class="tabs" role="group" aria-label="表示の切り替え">
+        <button type="button" data-f="all">すべて</button>
+        <button type="button" data-f="本業">本業</button>
+        <button type="button" data-f="副業">副業</button>
+      </div>
+      <div id="groups"></div>
+      <div class="legend"><span><i style="background:var(--hon)"></i>本業</span><span><i style="background:var(--fuku)"></i>副業</span></div>
+    </div>
+  </div>
+  <div class="note" id="note"></div>
+  <div class="foot"><button type="button" id="logout" hidden>Dropboxからログアウト</button></div>
+</div>
+
+<button class="fab" id="fab" type="button" aria-label="タスクを追加" hidden>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+</button>
+
+<form class="sheet" id="sheet" hidden>
+  <h3>思いついたことを入れる</h3>
+  <input type="text" id="addInput" placeholder="例：〇〇様に見積もりを送る" autocomplete="off" enterkeyhint="done">
+  <div class="kinds" role="group" aria-label="本業か副業か">
+    <button type="button" data-k="本業">本業</button>
+    <button type="button" data-k="副業">副業</button>
+  </div>
+  <div class="sheet-acts">
+    <button type="button" class="btn-sub" id="cancelAdd">やめる</button>
+    <button type="submit" class="btn-main" id="addBtn">入れる</button>
+  </div>
+</form>
+
+<div class="toast" id="toast" hidden><span id="toastText"></span><button type="button" id="undo" hidden>取り消す</button></div>
+
+<script>
+(function(){
+  "use strict";
+  // ===== 設定 =====
+  const APP_KEY = "vd8fz3wp1wvfvxt";
+  const PATH = "/AI_Knowledge/06_プロジェクト/00_進み具合ボード.md";
+  const REDIRECT = location.origin + location.pathname;
+  const STAGE_RE = /^[⓪①②③④⑤⑥⑦⑧⑨⑩]/;
+  const AI_LABEL = { "①":"これから仕分け", "②":"Codexへの依頼を準備中", "③":"Codexが作業中", "④":"Claudeがチェック中" };
+
+  const $ = id => document.getElementById(id);
+  const store = {
+    get(k){ try { return localStorage.getItem(k); } catch(e) { return null; } },
+    set(k,v){ try { localStorage.setItem(k, v); } catch(e) {} },
+    del(k){ try { localStorage.removeItem(k); } catch(e) {} }
+  };
+
+  let boardText = store.get("board_cache") || "";
+  let boardRev = null;
+  let busy = false, showDone = false, pending = null;
+  let filter = store.get("filter") || "all";
+  let addKind = store.get("addKind") || "副業";
+
+  const pad = n => String(n).padStart(2, "0");
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+  $("today").textContent = `${now.getMonth()+1}月${now.getDate()}日（${"日月火水木金土"[now.getDay()]}）`;
+
+  // ===== Dropboxとのつなぎ（ログイン） =====
+  function b64url(bytes){
+    let s = ""; bytes.forEach(b => s += String.fromCharCode(b));
+    return btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+  }
+  function randomString(){ const a = new Uint8Array(48); crypto.getRandomValues(a); return b64url(a); }
+  async function challengeOf(v){ const h = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(v)); return b64url(new Uint8Array(h)); }
+
+  async function startLogin(){
+    const verifier = randomString();
+    store.set("pkce_verifier", verifier);
+    const params = new URLSearchParams({
+      client_id: APP_KEY, response_type: "code", redirect_uri: REDIRECT,
+      code_challenge: await challengeOf(verifier), code_challenge_method: "S256",
+      token_access_type: "offline"
+    });
+    location.href = "https://www.dropbox.com/oauth2/authorize?" + params.toString();
+  }
+
+  async function finishLoginIfReturning(){
+    const q = new URLSearchParams(location.search);
+    if (q.get("error")) { history.replaceState(null, "", REDIRECT); setNote("ログインが中止されました。もう一度お試しください", true); return; }
+    const code = q.get("code");
+    if (!code) return;
+    history.replaceState(null, "", REDIRECT);
+    const verifier = store.get("pkce_verifier");
+    if (!verifier) { setNote("ログインの途中で情報が消えました。もう一度ログインしてください", true); return; }
+    const res = await fetch("https://api.dropboxapi.com/oauth2/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ code, grant_type: "authorization_code", client_id: APP_KEY, redirect_uri: REDIRECT, code_verifier: verifier })
+    });
+    store.del("pkce_verifier");
+    if (!res.ok) { setNote("ログインがうまくいきませんでした。もう一度お試しください", true); return; }
+    saveToken(await res.json());
+  }
+
+  function saveToken(t){
+    if (t.access_token) { store.set("dbx_access", t.access_token); store.set("dbx_exp", String(Date.now() + (t.expires_in || 14400) * 1000)); }
+    if (t.refresh_token) store.set("dbx_refresh", t.refresh_token);
+  }
+  const loggedIn = () => !!store.get("dbx_refresh");
+
+  async function accessToken(force){
+    const exp = +(store.get("dbx_exp") || 0);
+    if (!force && store.get("dbx_access") && exp - Date.now() > 60000) return store.get("dbx_access");
+    const refresh = store.get("dbx_refresh");
+    if (!refresh) throw { kind: "login" };
+    const res = await fetch("https://api.dropboxapi.com/oauth2/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: refresh, client_id: APP_KEY })
+    });
+    if (res.status === 400 || res.status === 401) { logout(true); throw { kind: "login" }; }
+    if (!res.ok) throw { kind: "net" };
+    saveToken(await res.json());
+    return store.get("dbx_access");
+  }
+
+  // ヘッダーに日本語を入れるときは \uXXXX の形にする必要がある
+  const headerJson = o => JSON.stringify(o).replace(/[\u007f-￿]/g, c => "\\u" + ("000" + c.charCodeAt(0).toString(16)).slice(-4));
+
+  async function dbx(url, arg, body, retried){
+    let token;
+    try { token = await accessToken(false); } catch(e) { throw e; }
+    let res;
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        headers: Object.assign({ "Authorization": "Bearer " + token, "Dropbox-API-Arg": headerJson(arg) }, body != null ? { "Content-Type": "application/octet-stream" } : {}),
+        body: body != null ? new TextEncoder().encode(body) : undefined
+      });
+    } catch(e) { throw { kind: "net" }; }
+    if (res.status === 401 && !retried) { await accessToken(true); return dbx(url, arg, body, true); }
+    return res;
+  }
+
+  async function download(){
+    const res = await dbx("https://content.dropboxapi.com/2/files/download", { path: PATH }, null);
+    if (res.status === 409) throw { kind: "missing" };
+    if (!res.ok) throw { kind: "net" };
+    let rev = null;
+    try { rev = JSON.parse(res.headers.get("Dropbox-API-Result") || "{}").rev || null; } catch(e) {}
+    const text = (await res.text()).replace(/\r/g, "").replace(/\s+$/, "") + "\n";
+    return { text, rev };
+  }
+
+  async function upload(text, rev){
+    const mode = rev ? { ".tag": "update", "update": rev } : { ".tag": "overwrite" };
+    const res = await dbx("https://content.dropboxapi.com/2/files/upload", { path: PATH, mode, autorename: false, mute: true }, text);
+    if (res.status === 409) throw { kind: "conflict" };
+    if (!res.ok) throw { kind: "net" };
+    const meta = await res.json();
+    return meta.rev || null;
+  }
+
+  function logout(silent){
+    ["dbx_access","dbx_exp","dbx_refresh","board_cache"].forEach(k => store.del(k));
+    boardText = ""; boardRev = null;
+    if (!silent) setNote("ログアウトしました");
+    show();
+  }
+
+  // ===== ボードを読む =====
+  function parseItem(raw){
+    const parts = raw.replace(/^\s*-\s/, "").split("｜");
+    let title = parts[0].trim(), kind = null;
+    const m = title.match(/^【(本業|副業)】\s*/);
+    if (m) { kind = m[1]; title = title.slice(m[0].length); }
+    const fields = {}, extra = [];
+    parts.slice(1).forEach(p => { const mm = p.match(/^\s*([^：:]{1,8})[：:]\s*(.*)$/); if (mm) fields[mm[1].trim()] = mm[2].trim(); else if (p.trim()) extra.push(p.trim()); });
+    return { raw, kind, title, fields, extra };
+  }
+  function parse(text){
+    const sections = []; let cur = null;
+    text.split("\n").forEach(ln => {
+      if (ln.startsWith("## ")) { cur = { title: ln.slice(3).trim(), items: [] }; sections.push(cur); }
+      else if (cur && /^\s*-\s/.test(ln)) cur.items.push(parseItem(ln));
+    });
+    return sections.filter(s => STAGE_RE.test(s.title));
+  }
+  function dueInfo(v){
+    const m = (v||"").match(/(\d{4})-(\d{1,2})-(\d{1,2})/); if (!m) return null;
+    const d = Math.round((new Date(+m[1],+m[2]-1,+m[3]) - new Date(now.getFullYear(),now.getMonth(),now.getDate()))/86400000);
+    const md = `${+m[2]}月${+m[3]}日`;
+    if (d < 0) return `${md}締切（${-d}日過ぎ）`;
+    if (d === 0) return "今日締切";
+    if (d === 1) return "明日締切";
+    return `${md}締切`;
+  }
+  const sym = s => s.title.charAt(0);
+  const isDone = s => s.title.includes("完了");
+  const isMine = s => sym(s) === "⓪" || s.title.includes("恒松さん");
+
+  function grouped(){
+    const pass = it => filter === "all" || it.kind === filter;
+    const mine = [], ai = [], done = [];
+    parse(boardText).forEach(s => s.items.filter(pass).forEach(it => {
+      if (isDone(s)) done.push({ it });
+      else if (isMine(s)) mine.push({ it, stage: sym(s) === "⓪" ? null : "確認してね" });
+      else ai.push({ it, stage: AI_LABEL[sym(s)] || s.title.replace(STAGE_RE,"").replace(/（.*?）/g,"").trim() });
+    }));
+    const byDue = (a,b) => (a.it.fields["締切"]||"9999").localeCompare(b.it.fields["締切"]||"9999");
+    mine.sort(byDue); ai.sort(byDue); done.reverse();
+    return { mine, ai, done };
+  }
+
+  // ===== 画面 =====
+  function el(tag, attrs, kids){
+    const e = document.createElement(tag);
+    if (attrs) for (const k in attrs) { if (k === "text") e.textContent = attrs[k]; else if (k === "cls") e.className = attrs[k]; else e.setAttribute(k, attrs[k]); }
+    (kids||[]).forEach(c => c && e.appendChild(typeof c === "string" ? document.createTextNode(c) : c));
+    return e;
+  }
+  const CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+
+  function row(it, opts){
+    const k = it.kind === "本業" ? "hon" : it.kind === "副業" ? "fuku" : "none";
+    const r = el("div", { cls: "row" + (opts.done || (pending && pending.raw === it.raw) ? " checked" : "") });
+    if (opts.checkable) {
+      const b = el("button", { cls:"check", type:"button", "aria-label":"「"+it.title+"」を完了にする" });
+      b.innerHTML = CHECK; b.disabled = busy || !!pending;
+      b.onclick = () => startComplete(it);
+      r.appendChild(b); r.appendChild(el("span",{cls:"dotk "+k}));
+    } else if (opts.done) {
+      const c = el("span", { cls:"check" }); c.innerHTML = CHECK; r.appendChild(c);
+    } else {
+      r.appendChild(el("span", { cls:"dotk " + k }));
+    }
+    const body = el("div", { cls:"body" }, [ el("div", { cls:"ttl", text: it.title }) ]);
+    const subs = [];
+    if (!opts.done) { const d = dueInfo(it.fields["締切"]); if (d) subs.push(el("span",{cls:"due",text:d})); }
+    if (opts.stage) subs.push(opts.stage);
+    if (opts.done) { const w = it.fields["完了"] || it.extra.join(" "); const m = w.match(/\d{4}-0?(\d+)-0?(\d+)/); subs.push((it.kind ? it.kind + "・" : "") + (m ? `${m[1]}/${m[2]}に完了` : w)); }
+    else if (opts.checkable && it.kind) subs.push(it.kind);
+    const s = subs.filter(Boolean);
+    if (s.length) { const sub = el("div",{cls:"sub"}); s.forEach((x,i)=>{ if(i) sub.append("・"); sub.append(x); }); body.appendChild(sub); }
+    r.appendChild(body);
+    return r;
+  }
+  function group(title, items, opts){
+    const g = el("section", { cls:"group" }, [ el("h2", {}, [ title, items.length ? el("small",{text:`${items.length}件`}) : null ]) ]);
+    const list = el("div", { cls:"list" });
+    if (!items.length) list.appendChild(el("div", { cls:"empty", text: "今はありません" }));
+    items.forEach(x => list.appendChild(row(x.it, Object.assign({}, opts, { stage: x.stage }))));
+    g.appendChild(list);
+    return g;
+  }
+  function render(){
+    if (!boardText) { $("groups").replaceChildren(); return; }
+    const { mine, ai, done } = grouped();
+    document.querySelectorAll(".tabs button").forEach(c => c.setAttribute("aria-pressed", String(c.dataset.f === filter)));
+    const dg = el("section", { cls:"group" });
+    const t = el("button", { cls:"toggle", type:"button", text: (showDone ? "▾ " : "▸ ") + `終わったこと（${done.length}件）` });
+    t.onclick = () => { showDone = !showDone; render(); };
+    dg.appendChild(t);
+    if (showDone) {
+      const list = el("div",{cls:"list"});
+      if (!done.length) list.appendChild(el("div",{cls:"empty",text:"まだありません"}));
+      done.forEach(x => list.appendChild(row(x.it,{done:true})));
+      dg.appendChild(list);
+    }
+    $("groups").replaceChildren(group("自分でやること", mine, { checkable:true }), group("AIが進めていること", ai, {}), dg);
+  }
+  function show(){
+    const ok = loggedIn();
+    $("login").hidden = ok; $("main").hidden = !ok; $("fab").hidden = !ok || !$("sheet").hidden;
+    $("reload").hidden = !ok; $("logout").hidden = !ok;
+    $("speak").hidden = !ok || !("speechSynthesis" in window);
+    render();
+  }
+  function setNote(text, err){ const n = $("note"); n.textContent = text || ""; n.className = "note" + (err ? " err" : ""); }
+  let toastT;
+  function toast(text, undoFn, ms){
+    $("toastText").textContent = text; const u = $("undo");
+    u.hidden = !undoFn; u.onclick = undoFn || null;
+    $("toast").hidden = false; clearTimeout(toastT);
+    toastT = setTimeout(() => $("toast").hidden = true, ms || 2400);
+  }
+  function explain(e){
+    const k = e && e.kind;
+    if (k === "login") return "Dropboxへのログインが切れました。もう一度ログインしてください";
+    if (k === "missing") return "Dropboxに進み具合ボードが見つかりません。Claudeに「ボードを作り直して」と伝えてください";
+    if (k === "conflict") return "同じタイミングで誰か（ClaudeかCodex）がボードを書き換えました。最新を読み込んだので、もう一度どうぞ";
+    return "Dropboxにつながりませんでした。電波を確認して、右上の矢印でもう一度";
+  }
+  const stamp = () => { const t = new Date(); return `${pad(t.getHours())}:${pad(t.getMinutes())}`; };
+
+  async function load(){
+    if (!loggedIn()) { show(); return; }
+    $("reload").classList.add("spin");
+    try {
+      const r = await download();
+      boardText = r.text; boardRev = r.rev; store.set("board_cache", boardText);
+      setNote(`${stamp()} の最新です`);
+    } catch(e) {
+      setNote(explain(e) + (boardText ? "（前回の内容を表示中）" : ""), true);
+    }
+    $("reload").classList.remove("spin");
+    show();
+  }
+
+  // ===== ボードに書く =====
+  function insertInto(lines, test, newLine){
+    const h = lines.findIndex(l => l.startsWith("## ") && test(l.slice(3).trim()));
+    if (h < 0) return false;
+    let end = lines.length;
+    for (let i=h+1;i<lines.length;i++) if (lines[i].startsWith("## ")) { end = i; break; }
+    let pos = h + 1;
+    for (let i=h+1;i<end;i++) if (/^\s*-\s/.test(lines[i])) pos = i + 1;
+    lines.splice(pos, 0, newLine);
+    return true;
+  }
+  async function mutate(change, okMsg){
+    if (busy) return false;
+    busy = true; render(); setNote("保存中…");
+    let ok = false;
+    try {
+      const fresh = await download();
+      const lines = fresh.text.split("\n");
+      if (!change(lines)) {
+        boardText = fresh.text; boardRev = fresh.rev; store.set("board_cache", boardText);
+        setNote("ボードが変わっていたので最新にしました。もう一度どうぞ", true);
+      } else {
+        const newText = lines.join("\n").replace(/\s+$/, "") + "\n";
+        boardRev = await upload(newText, fresh.rev);
+        boardText = newText; store.set("board_cache", boardText); ok = true;
+        setNote(`${stamp()} に保存しました`);
+        toast(okMsg);
+      }
+    } catch(e) {
+      setNote(explain(e), true);
+      if (e && e.kind === "conflict") { try { const r = await download(); boardText = r.text; boardRev = r.rev; store.set("board_cache", boardText); } catch(_) {} }
+    }
+    busy = false; render(); return ok;
+  }
+  function startComplete(it){
+    if (pending || busy) return;
+    pending = { raw: it.raw };
+    render();
+    toast("完了にしました", () => { clearTimeout(pending.timer); pending = null; $("toast").hidden = true; render(); }, 3500);
+    pending.timer = setTimeout(async () => {
+      const raw = pending.raw;
+      await mutate(lines => {
+        const i = lines.findIndex(l => l === raw); if (i < 0) return false;
+        lines.splice(i, 1);
+        return insertInto(lines, t => t.includes("完了"), raw.replace(/\s+$/,"") + `｜完了：${todayStr}`);
+      }, "Dropboxに記録しました");
+      pending = null; render();
+    }, 3500);
+  }
+
+  // ===== 読み上げ =====
+  let speaking = false;
+  function speakToday(){
+    const ss = window.speechSynthesis;
+    if (speaking) { ss.cancel(); speaking = false; $("speak").classList.remove("on"); return; }
+    const { mine, ai } = grouped();
+    let text = mine.length ? `自分でやることは${mine.length}件です。` : "自分でやることは、今はありません。";
+    mine.forEach((x, i) => { const d = dueInfo(x.it.fields["締切"]); text += `${i+1}つ目、${x.it.title}${d ? "、" + d : ""}。`; });
+    if (ai.length) text += `AIが進めていることは${ai.length}件です。`;
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "ja-JP"; u.rate = 1.0;
+    const v = ss.getVoices().find(v => v.lang && v.lang.startsWith("ja"));
+    if (v) u.voice = v;
+    u.onend = u.onerror = () => { speaking = false; $("speak").classList.remove("on"); };
+    ss.cancel(); ss.speak(u); speaking = true; $("speak").classList.add("on");
+  }
+
+  // ===== ボタン =====
+  function openSheet(open){
+    $("sheet").hidden = !open; $("fab").hidden = open || !loggedIn();
+    document.querySelectorAll(".kinds button").forEach(c => c.setAttribute("aria-pressed", String(c.dataset.k === addKind)));
+    if (open) setTimeout(() => $("addInput").focus(), 50);
+  }
+  $("loginBtn").onclick = () => startLogin();
+  $("logout").onclick = () => logout(false);
+  $("speak").onclick = () => speakToday();
+  $("reload").onclick = () => { if (!busy && !pending) load(); };
+  $("fab").onclick = () => openSheet(true);
+  $("cancelAdd").onclick = () => openSheet(false);
+  document.querySelectorAll(".kinds button").forEach(c => c.onclick = () => { addKind = c.dataset.k; store.set("addKind", addKind); openSheet(true); });
+  document.querySelectorAll(".tabs button").forEach(c => c.onclick = () => { filter = c.dataset.f; store.set("filter", filter); render(); });
+  $("sheet").addEventListener("submit", async e => {
+    e.preventDefault();
+    const v = $("addInput").value.replace(/[｜\n]/g, " ").trim();
+    if (!v) { $("addInput").focus(); return; }
+    $("addBtn").disabled = true;
+    const ok = await mutate(lines => insertInto(lines, t => t.startsWith("①"), `- 【${addKind}】${v}｜登録：${todayStr}`), "受付に入れました");
+    $("addBtn").disabled = false;
+    if (ok) { $("addInput").value = ""; openSheet(false); }
+  });
+  // アプリに戻ってきたら最新を読み込む
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && loggedIn() && !busy && !pending) load(); });
+
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+
+  // ===== 起動 =====
+  show();
+  if (boardText) setNote("前回の内容を表示中…");
+  finishLoginIfReturning().catch(() => setNote("ログインがうまくいきませんでした。もう一度お試しください", true)).then(load);
+})();
+</script>
+</body>
+</html>
