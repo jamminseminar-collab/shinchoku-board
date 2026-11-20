@@ -179,11 +179,18 @@ body{background:radial-gradient(140% 520px at 50% -10%,var(--surface-2) 0%,trans
   .check{background:transparent}
 }
 
-/* ===== ヘッドはネイビー固定。タブのボタンとその下の一覧は、すべて＝ロイヤルブルー／本業＝オレンジ／副業＝シルバー ===== */
+/* ===== ヘッド・タブのボタン・その下の一覧を、すべて＝ロイヤルブルー／本業＝オレンジ／副業＝シルバー ===== */
 :root{ --hon:#ffab5e; --hon-soft:#3b2310; --fuku:#cfd7e1; --fuku-soft:#262d38; }
 .hero{ background:
-   radial-gradient(120% 90% at 100% 0%,rgba(120,150,210,.24) 0%,transparent 55%),
-   linear-gradient(155deg,#1d3566 0%,#0a1630 78%) }
+   radial-gradient(120% 90% at 100% 0%,rgba(255,255,255,.16) 0%,transparent 55%),
+   linear-gradient(155deg,#2f5fd0 0%,#132f86 55%,#0a1a4f 100%) }
+body[data-tab="本業"] .hero{ background:
+   radial-gradient(120% 90% at 100% 0%,rgba(255,255,255,.16) 0%,transparent 55%),
+   linear-gradient(155deg,#ea7a22 0%,#a9440a 55%,#5e2204 100%); border-color:rgba(255,200,150,.25) }
+body[data-tab="副業"] .hero{ background:
+   repeating-linear-gradient(90deg,rgba(255,255,255,.04) 0 1px,transparent 1px 3px),
+   linear-gradient(125deg,#2a3037 0%,#5b646e 24%,#30363d 48%,#6a737d 70%,#22272c 100%); border-color:rgba(255,255,255,.25) }
+body[data-tab="副業"] .hero .month, body[data-tab="副業"] .hero .stat span, body[data-tab="副業"] .brand{ color:#e6ebf0 }
 body{ --act:linear-gradient(180deg,#3d6be0 0%,#1c3fae 100%); --act-ink:#ffffff; --tint:rgba(61,107,224,.35); --glow:rgba(45,90,210,.30);
   background:radial-gradient(130% 700px at 50% 520px,var(--glow) 0%,transparent 70%) no-repeat,var(--bg) }
 body[data-tab="本業"]{ --act:linear-gradient(180deg,#f39237 0%,#c2530c 100%); --act-ink:#ffffff; --tint:rgba(240,140,50,.38); --glow:rgba(225,115,25,.26) }
