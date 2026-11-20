@@ -226,6 +226,11 @@ body[data-tab="副業"]{
 .swipe .row.dragging{transition:none}
 .swipe-hint{font-size:12px;color:#8d8f96;text-align:center;margin-top:-8px}
 
+.mv-edit{background:linear-gradient(180deg,#f4f6f8,#c9d0d8)!important;color:#111!important}
+.due-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.due-row span{flex:none}
+.due-row input{flex:1;min-width:0;font:inherit;font-size:16px;padding:10px 12px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface-2);color:var(--fg)}
+.due-row button{flex:none;font-size:13px;color:var(--muted);padding:8px}
 /* 右下の＋・入力シート・お知らせを、いつも一番手前に */
 .fab{z-index:40}
 .sheet{z-index:50}
@@ -271,7 +276,7 @@ body[data-tab="副業"]{
         <button type="button" data-f="本業">本業</button>
         <button type="button" data-f="副業">副業</button>
       </div>
-      <div class="swipe-hint">タスクを左にスライドすると、ほかの欄へ移せます</div>
+      <div class="swipe-hint">タスクを左にスライドすると、直したり、ほかの欄へ移したりできます</div>
       <div id="groups"></div>
       <div class="legend"><span><i style="background:var(--hon)"></i>本業</span><span><i style="background:var(--fuku)"></i>副業</span></div>
     </div>
@@ -285,13 +290,14 @@ body[data-tab="副業"]{
 </button>
 
 <form class="sheet" id="sheet" hidden>
-  <h3>思いついたことを入れる</h3>
+  <h3 id="sheetTitle">思いついたことを入れる</h3>
   <input type="text" id="addInput" placeholder="例：〇〇様に見積もりを送る" autocomplete="off" enterkeyhint="done">
+  <label class="due-row" for="dueInput"><span>締切（なくてもOK）</span><input type="date" id="dueInput"><button type="button" id="dueClear">消す</button></label>
   <div class="kinds" role="group" aria-label="本業か副業か">
     <button type="button" data-k="本業">本業</button>
     <button type="button" data-k="副業">副業</button>
   </div>
-  <div class="kinds who" role="group" aria-label="誰がやるか">
+  <div class="kinds who" id="whoRow" role="group" aria-label="誰がやるか">
     <button type="button" data-w="me">自分でやる</button>
     <button type="button" data-w="ai">AIに頼む</button>
   </div>
@@ -549,8 +555,12 @@ body[data-tab="副業"]{
   function closeOpen(){ if (openRow) { openRow.style.transform = ""; openRow.classList.remove("open"); openRow = null; } }
   function swipeWrap(r, it, key){
     const targets = Object.keys(MOVE_TO).filter(k => k !== key);
-    const W = 78 * targets.length;
+    const W = 78 * (targets.length + 1);
     const acts = el("div", { cls:"acts" });
+    const eb = el("button", { cls:"mv mv-edit", type:"button", text:"編集" });
+    eb.disabled = busy || !!pending;
+    eb.onclick = () => { closeOpen(); openSheet(true, it); };
+    acts.appendChild(eb);
     targets.forEach(k => {
       const t = MOVE_TO[k];
       const b = el("button", { cls:"mv " + t.cls, type:"button", text: t.label });
@@ -733,7 +743,21 @@ body[data-tab="副業"]{
   }
 
   // ===== ボタン =====
-  function openSheet(open){
+  let editing = null;
+  function openSheet(open, it){
+    if (open && it !== undefined) {
+      editing = it;
+      if (it) {
+        $("addInput").value = it.title;
+        if (it.kind) addKind = it.kind;
+        const m = (it.fields["締切"] || "").match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+        $("dueInput").value = m ? `${m[1]}-${pad(+m[2])}-${pad(+m[3])}` : "";
+      }
+    }
+    if (!open) { if (editing) { $("addInput").value = ""; $("dueInput").value = ""; } editing = null; }
+    $("sheetTitle").textContent = editing ? "タスクを直す" : "思いついたことを入れる";
+    $("addBtn").textContent = editing ? "保存する" : "入れる";
+    $("whoRow").hidden = !!editing;
     $("sheet").hidden = !open; $("fab").hidden = open || !loggedIn();
     document.querySelectorAll(".kinds button[data-k]").forEach(c => c.setAttribute("aria-pressed", String(c.dataset.k === addKind)));
     document.querySelectorAll(".kinds button[data-w]").forEach(c => c.setAttribute("aria-pressed", String(c.dataset.w === addWho)));
@@ -743,7 +767,8 @@ body[data-tab="副業"]{
   $("logout").onclick = () => logout(false);
   $("speak").onclick = () => speakToday();
   $("reload").onclick = () => { if (!busy && !pending) load(); };
-  $("fab").onclick = () => openSheet(true);
+  $("fab").onclick = () => openSheet(true, null);
+  $("dueClear").onclick = e => { e.preventDefault(); $("dueInput").value = ""; };
   $("cancelAdd").onclick = () => openSheet(false);
   document.querySelectorAll(".kinds button[data-k]").forEach(c => c.onclick = () => { addKind = c.dataset.k; store.set("addKind", addKind); openSheet(true); });
   document.querySelectorAll(".kinds button[data-w]").forEach(c => c.onclick = () => { addWho = c.dataset.w; openSheet(true); });
@@ -753,10 +778,25 @@ body[data-tab="副業"]{
     const v = $("addInput").value.replace(/[｜\n]/g, " ").trim();
     if (!v) { $("addInput").focus(); return; }
     $("addBtn").disabled = true;
-    const toMe = addWho === "me";
-    const ok = await mutate(lines => insertInto(lines, t => t.startsWith(toMe ? "⓪" : "①"), `- 【${addKind}】${v}｜登録：${todayStr}`), toMe ? "自分でやることに入れました" : "まだ手をつけていないに入れました");
+    const due = $("dueInput").value; // YYYY-MM-DD か空
+    let ok;
+    if (editing) {
+      const raw = editing.raw;
+      ok = await mutate(lines => {
+        const i = lines.findIndex(l => l === raw); if (i < 0) return false;
+        const indent = (raw.match(/^\s*/) || [""])[0];
+        const rest = raw.replace(/^\s*-\s/, "").split("｜").slice(1).filter(p => !/^\s*締切[：:]/.test(p));
+        if (due) rest.unshift(`締切：${due}`);
+        lines[i] = `${indent}- 【${addKind}】${v}` + (rest.length ? "｜" + rest.join("｜") : "");
+        return true;
+      }, "直しました");
+    } else {
+      const toMe = addWho === "me";
+      const dueText = due ? `｜締切：${due}` : "";
+      ok = await mutate(lines => insertInto(lines, t => t.startsWith(toMe ? "⓪" : "①"), `- 【${addKind}】${v}${dueText}｜登録：${todayStr}`), toMe ? "自分でやることに入れました" : "まだ手をつけていないに入れました");
+    }
     $("addBtn").disabled = false;
-    if (ok) { $("addInput").value = ""; addWho = "me"; openSheet(false); }
+    if (ok) { $("addInput").value = ""; $("dueInput").value = ""; addWho = "me"; openSheet(false); }
   });
   // アプリに戻ってきたら最新を読み込む
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && loggedIn() && !busy && !pending) load(); });
