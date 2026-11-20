@@ -179,30 +179,41 @@ body{background:radial-gradient(140% 520px at 50% -10%,var(--surface-2) 0%,trans
   .check{background:transparent}
 }
 
-/* ===== ヘッド・タブのボタン・その下の一覧を、すべて＝ロイヤルブルー／本業＝オレンジ／副業＝シルバー ===== */
-:root{ --hon:#ffab5e; --hon-soft:#3b2310; --fuku:#cfd7e1; --fuku-soft:#262d38; }
-.hero{ background:
-   radial-gradient(120% 90% at 100% 0%,rgba(255,255,255,.16) 0%,transparent 55%),
-   linear-gradient(155deg,#2f5fd0 0%,#132f86 55%,#0a1a4f 100%) }
-body[data-tab="本業"] .hero{ background:
-   radial-gradient(120% 90% at 100% 0%,rgba(255,255,255,.16) 0%,transparent 55%),
-   linear-gradient(155deg,#ea7a22 0%,#a9440a 55%,#5e2204 100%); border-color:rgba(255,200,150,.25) }
-body[data-tab="副業"] .hero{ background:
-   repeating-linear-gradient(90deg,rgba(255,255,255,.04) 0 1px,transparent 1px 3px),
-   linear-gradient(125deg,#2a3037 0%,#5b646e 24%,#30363d 48%,#6a737d 70%,#22272c 100%); border-color:rgba(255,255,255,.25) }
-body[data-tab="副業"] .hero .month, body[data-tab="副業"] .hero .stat span, body[data-tab="副業"] .brand{ color:#e6ebf0 }
-body{ --act:linear-gradient(180deg,#3d6be0 0%,#1c3fae 100%); --act-ink:#ffffff; --tint:rgba(61,107,224,.35); --glow:rgba(45,90,210,.30);
-  background:radial-gradient(130% 700px at 50% 520px,var(--glow) 0%,transparent 70%) no-repeat,var(--bg) }
-body[data-tab="本業"]{ --act:linear-gradient(180deg,#f39237 0%,#c2530c 100%); --act-ink:#ffffff; --tint:rgba(240,140,50,.38); --glow:rgba(225,115,25,.26) }
-body[data-tab="副業"]{ --act:linear-gradient(180deg,#f7f9fb 0%,#c9d1db 45%,#8e9aaa 100%); --act-ink:#0a1630; --tint:rgba(200,210,224,.32); --glow:rgba(190,200,215,.16) }
+/* ===== 背景は黒。ヘッド・タブ・カードの色を、すべて＝シルバー／本業＝オレンジ／副業＝ロイヤルブルー ===== */
+:root{ --bg:#050506; --hon:#ffb36b; --fuku:#a9c3ff; }
+body{ background:#050506;
+  --hero:repeating-linear-gradient(90deg,rgba(255,255,255,.04) 0 1px,transparent 1px 3px),linear-gradient(125deg,#2a3037 0%,#5b646e 24%,#30363d 48%,#6a737d 70%,#22272c 100%);
+  --act:linear-gradient(180deg,#f7f9fb 0%,#c9d1db 45%,#8e9aaa 100%); --act-ink:#0a1630;
+  --card:linear-gradient(180deg,#3b4149 0%,#262a30 100%); --card-line:rgba(255,255,255,.16) }
+body[data-tab="本業"]{
+  --hero:radial-gradient(120% 90% at 100% 0%,rgba(255,255,255,.16) 0%,transparent 55%),linear-gradient(155deg,#ea7a22 0%,#a9440a 55%,#5e2204 100%);
+  --act:linear-gradient(180deg,#f39237 0%,#c2530c 100%); --act-ink:#ffffff;
+  --card:linear-gradient(180deg,#a8480f 0%,#6e2c07 100%); --card-line:rgba(255,190,130,.28) }
+body[data-tab="副業"]{
+  --hero:radial-gradient(120% 90% at 100% 0%,rgba(255,255,255,.16) 0%,transparent 55%),linear-gradient(155deg,#2f5fd0 0%,#132f86 55%,#0a1a4f 100%);
+  --act:linear-gradient(180deg,#3d6be0 0%,#1c3fae 100%); --act-ink:#ffffff;
+  --card:linear-gradient(180deg,#2850b4 0%,#152e74 100%); --card-line:rgba(150,180,255,.3) }
+.hero{ background:var(--hero); border-color:var(--card-line) }
+.hero .month, .hero .stat span, .brand{ color:rgba(255,255,255,.75) }
+.tabs{ background:#121214; border:1px solid #232327; box-shadow:none }
+.tabs button{ color:#8d8f96 }
 .tabs button[aria-pressed="true"]{ background:var(--act); color:var(--act-ink); box-shadow:inset 0 1px 0 rgba(255,255,255,.35) }
+.group h2{ color:#f2f3f5 }
 .group h2 small{ background:var(--act); color:var(--act-ink) }
-.row{ border-color:var(--tint) }
-.check{ border-color:var(--tint) }
-.row.checked .check{ background:var(--act); color:var(--act-ink); border-color:transparent }
-.mark{ color:var(--fg) }
-.go{ background:var(--act); color:var(--act-ink); border:1px solid rgba(255,255,255,.15); box-shadow:inset 0 1px 0 rgba(255,255,255,.35) }
-.empty{ border-color:var(--tint) }
+.hint{ color:#9a9ca3 }
+.row{ background:var(--card); border:1px solid var(--card-line); box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 6px 16px rgba(0,0,0,.4) }
+.row .ttl{ color:#ffffff }
+.row.checked .ttl{ color:rgba(255,255,255,.6) }
+.check{ border-color:rgba(255,255,255,.55); background:rgba(0,0,0,.18) }
+.row.checked .check{ background:#ffffff; color:#111; border-color:transparent }
+.mark{ background:rgba(0,0,0,.22); color:#ffffff }
+.tag, .tag.hon, .tag.fuku, .tag.stage{ background:rgba(0,0,0,.3); }
+.tag.hon{ color:var(--hon) } .tag.fuku{ color:var(--fuku) } .tag.stage{ color:rgba(255,255,255,.8) }
+.tag.due{ background:rgba(255,255,255,.92); color:#c6362a }
+.sub{ color:rgba(255,255,255,.75) }
+.go{ background:rgba(255,255,255,.95); color:#111; border:0; box-shadow:0 2px 8px rgba(0,0,0,.3) }
+.empty{ border-color:#2a2a2f; color:#8d8f96 }
+.toggle{ color:#9a9ca3 }
 
 [hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){.spin svg{animation:none}*{transition:none!important}}
