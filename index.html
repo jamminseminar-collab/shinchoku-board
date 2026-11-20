@@ -82,6 +82,7 @@ h1{font-weight:800;font-size:24px;margin:0}
 .kinds button{flex:1;padding:10px;border-radius:10px;border:2px solid var(--line);font-weight:700;color:var(--muted)}
 .kinds button[aria-pressed="true"][data-k="本業"]{border-color:var(--hon);color:var(--hon)}
 .kinds button[aria-pressed="true"][data-k="副業"]{border-color:var(--fuku);color:var(--fuku)}
+.kinds button[aria-pressed="true"][data-w]{border-color:var(--accent);color:var(--accent)}
 .sheet-acts{display:flex;gap:8px}
 .sheet-acts button{flex:1}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(92px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);
@@ -141,6 +142,10 @@ h1{font-weight:800;font-size:24px;margin:0}
     <button type="button" data-k="本業">本業</button>
     <button type="button" data-k="副業">副業</button>
   </div>
+  <div class="kinds who" role="group" aria-label="誰がやるか">
+    <button type="button" data-w="me">自分でやる</button>
+    <button type="button" data-w="ai">AIに頼む</button>
+  </div>
   <div class="sheet-acts">
     <button type="button" class="btn-sub" id="cancelAdd">やめる</button>
     <button type="submit" class="btn-main" id="addBtn">入れる</button>
@@ -157,7 +162,7 @@ h1{font-weight:800;font-size:24px;margin:0}
   const PATH = "/AI_Knowledge/06_プロジェクト/00_進み具合ボード.md";
   const REDIRECT = location.origin + location.pathname;
   const STAGE_RE = /^[⓪①②③④⑤⑥⑦⑧⑨⑩]/;
-  const AI_LABEL = { "①":"これから仕分け", "②":"Codexへの依頼を準備中", "③":"Codexが作業中", "④":"Claudeがチェック中" };
+  const AI_LABEL = { "②":"Codexへの依頼を準備中", "③":"Codexが作業中", "④":"Claudeがチェック中" };
 
   const $ = id => document.getElementById(id);
   const store = {
@@ -171,6 +176,7 @@ h1{font-weight:800;font-size:24px;margin:0}
   let busy = false, showDone = false, pending = null;
   let filter = store.get("filter") || "all";
   let addKind = store.get("addKind") || "副業";
+  let addWho = "me";
 
   const pad = n => String(n).padStart(2, "0");
   const now = new Date();
@@ -313,15 +319,16 @@ h1{font-weight:800;font-size:24px;margin:0}
 
   function grouped(){
     const pass = it => filter === "all" || it.kind === filter;
-    const mine = [], ai = [], done = [];
+    const mine = [], todo = [], ai = [], done = [];
     parse(boardText).forEach(s => s.items.filter(pass).forEach(it => {
       if (isDone(s)) done.push({ it });
       else if (isMine(s)) mine.push({ it, stage: sym(s) === "⓪" ? null : "確認してね" });
+      else if (sym(s) === "①") todo.push({ it, stage: null });
       else ai.push({ it, stage: AI_LABEL[sym(s)] || s.title.replace(STAGE_RE,"").replace(/（.*?）/g,"").trim() });
     }));
     const byDue = (a,b) => (a.it.fields["締切"]||"9999").localeCompare(b.it.fields["締切"]||"9999");
-    mine.sort(byDue); ai.sort(byDue); done.reverse();
-    return { mine, ai, done };
+    mine.sort(byDue); todo.sort(byDue); ai.sort(byDue); done.reverse();
+    return { mine, todo, ai, done };
   }
 
   // ===== 画面 =====
@@ -359,6 +366,7 @@ h1{font-weight:800;font-size:24px;margin:0}
   }
   function group(title, items, opts){
     const g = el("section", { cls:"group" }, [ el("h2", {}, [ title, items.length ? el("small",{text:`${items.length}件`}) : null ]) ]);
+    if (opts.hint && items.length) g.appendChild(el("div", { cls:"sub", text: opts.hint }));
     const list = el("div", { cls:"list" });
     if (!items.length) list.appendChild(el("div", { cls:"empty", text: "今はありません" }));
     items.forEach(x => list.appendChild(row(x.it, Object.assign({}, opts, { stage: x.stage }))));
@@ -367,7 +375,7 @@ h1{font-weight:800;font-size:24px;margin:0}
   }
   function render(){
     if (!boardText) { $("groups").replaceChildren(); return; }
-    const { mine, ai, done } = grouped();
+    const { mine, todo, ai, done } = grouped();
     document.querySelectorAll(".tabs button").forEach(c => c.setAttribute("aria-pressed", String(c.dataset.f === filter)));
     const dg = el("section", { cls:"group" });
     const t = el("button", { cls:"toggle", type:"button", text: (showDone ? "▾ " : "▸ ") + `終わったこと（${done.length}件）` });
@@ -379,7 +387,7 @@ h1{font-weight:800;font-size:24px;margin:0}
       done.forEach(x => list.appendChild(row(x.it,{done:true})));
       dg.appendChild(list);
     }
-    $("groups").replaceChildren(group("自分でやること", mine, { checkable:true }), group("AIが進めていること", ai, {}), dg);
+    $("groups").replaceChildren(group("自分でやること", mine, { checkable:true }), group("まだ手をつけていない", todo, { checkable:true, hint:"Claudeに「これ進めて」と声をかけると始まります" }), group("AIが作業中", ai, {}), dg);
   }
   function show(){
     const ok = loggedIn();
@@ -474,10 +482,11 @@ h1{font-weight:800;font-size:24px;margin:0}
   function speakToday(){
     const ss = window.speechSynthesis;
     if (speaking) { ss.cancel(); speaking = false; $("speak").classList.remove("on"); return; }
-    const { mine, ai } = grouped();
+    const { mine, todo, ai } = grouped();
     let text = mine.length ? `自分でやることは${mine.length}件です。` : "自分でやることは、今はありません。";
     mine.forEach((x, i) => { const d = dueInfo(x.it.fields["締切"]); text += `${i+1}つ目、${x.it.title}${d ? "、" + d : ""}。`; });
-    if (ai.length) text += `AIが進めていることは${ai.length}件です。`;
+    if (todo.length) text += `まだ手をつけていないことが${todo.length}件あります。`;
+    if (ai.length) text += `AIが作業中のことは${ai.length}件です。`;
     const u = new SpeechSynthesisUtterance(text);
     u.lang = "ja-JP"; u.rate = 1.0;
     const v = ss.getVoices().find(v => v.lang && v.lang.startsWith("ja"));
@@ -489,7 +498,8 @@ h1{font-weight:800;font-size:24px;margin:0}
   // ===== ボタン =====
   function openSheet(open){
     $("sheet").hidden = !open; $("fab").hidden = open || !loggedIn();
-    document.querySelectorAll(".kinds button").forEach(c => c.setAttribute("aria-pressed", String(c.dataset.k === addKind)));
+    document.querySelectorAll(".kinds button[data-k]").forEach(c => c.setAttribute("aria-pressed", String(c.dataset.k === addKind)));
+    document.querySelectorAll(".kinds button[data-w]").forEach(c => c.setAttribute("aria-pressed", String(c.dataset.w === addWho)));
     if (open) setTimeout(() => $("addInput").focus(), 50);
   }
   $("loginBtn").onclick = () => startLogin();
@@ -498,16 +508,18 @@ h1{font-weight:800;font-size:24px;margin:0}
   $("reload").onclick = () => { if (!busy && !pending) load(); };
   $("fab").onclick = () => openSheet(true);
   $("cancelAdd").onclick = () => openSheet(false);
-  document.querySelectorAll(".kinds button").forEach(c => c.onclick = () => { addKind = c.dataset.k; store.set("addKind", addKind); openSheet(true); });
+  document.querySelectorAll(".kinds button[data-k]").forEach(c => c.onclick = () => { addKind = c.dataset.k; store.set("addKind", addKind); openSheet(true); });
+  document.querySelectorAll(".kinds button[data-w]").forEach(c => c.onclick = () => { addWho = c.dataset.w; openSheet(true); });
   document.querySelectorAll(".tabs button").forEach(c => c.onclick = () => { filter = c.dataset.f; store.set("filter", filter); render(); });
   $("sheet").addEventListener("submit", async e => {
     e.preventDefault();
     const v = $("addInput").value.replace(/[｜\n]/g, " ").trim();
     if (!v) { $("addInput").focus(); return; }
     $("addBtn").disabled = true;
-    const ok = await mutate(lines => insertInto(lines, t => t.startsWith("①"), `- 【${addKind}】${v}｜登録：${todayStr}`), "受付に入れました");
+    const toMe = addWho === "me";
+    const ok = await mutate(lines => insertInto(lines, t => t.startsWith(toMe ? "⓪" : "①"), `- 【${addKind}】${v}｜登録：${todayStr}`), toMe ? "自分でやることに入れました" : "まだ手をつけていないに入れました");
     $("addBtn").disabled = false;
-    if (ok) { $("addInput").value = ""; openSheet(false); }
+    if (ok) { $("addInput").value = ""; addWho = "me"; openSheet(false); }
   });
   // アプリに戻ってきたら最新を読み込む
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && loggedIn() && !busy && !pending) load(); });
