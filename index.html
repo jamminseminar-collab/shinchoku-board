@@ -499,6 +499,8 @@ body[data-tab="副業"]{
     const link = (it.fields["リンク"] || "").trim();
     if (/^https:\/\/claude\.ai\//.test(link)) {
       body.appendChild(el("a", { cls:"go", href: link, target:"_blank", rel:"noopener", text:"Claudeのチャットを開く →" }));
+    } else if (/^https:\/\/mail\.google\.com\//.test(link)) {
+      body.appendChild(el("a", { cls:"go", href: link, target:"_blank", rel:"noopener", text:"Gmailでメールを開く →" }));
     } else if (opts.ask) {
       const msg = `進み具合ボード（Dropbox /AI_Knowledge/06_プロジェクト/00_進み具合ボード.md）のこのタスクを進めてください。\n${it.raw.replace(/^\s*-\s/, "")}`;
       body.appendChild(el("a", { cls:"go", href: "https://claude.ai/new?q=" + encodeURIComponent(msg), target:"_blank", rel:"noopener", text:"Claudeに頼む →" }));
