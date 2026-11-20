@@ -215,6 +215,17 @@ body[data-tab="副業"]{
 .empty{ border-color:#2a2a2f; color:#8d8f96 }
 .toggle{ color:#9a9ca3 }
 
+/* 左スライドで移動 */
+.swipe{position:relative;border-radius:18px;overflow:hidden;background:#0d0d10}
+.swipe .acts{position:absolute;top:0;right:0;bottom:0;display:flex}
+.swipe .mv{width:78px;color:#fff;font-weight:700;font-size:12px;line-height:1.35;white-space:pre-line;display:flex;align-items:center;justify-content:center;text-align:center}
+.mv-mine{background:linear-gradient(180deg,#5b646e,#30363d)}
+.mv-todo{background:linear-gradient(180deg,#c2530c,#7a3106)}
+.mv-ai{background:linear-gradient(180deg,#3d6be0,#1c3fae)}
+.swipe .row{position:relative;z-index:1;touch-action:pan-y;transition:transform .22s ease}
+.swipe .row.dragging{transition:none}
+.swipe-hint{font-size:12px;color:#8d8f96;text-align:center;margin-top:-8px}
+
 [hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){.spin svg{animation:none}*{transition:none!important}}
 </style>
@@ -256,6 +267,7 @@ body[data-tab="副業"]{
         <button type="button" data-f="本業">本業</button>
         <button type="button" data-f="副業">副業</button>
       </div>
+      <div class="swipe-hint">タスクを左にスライドすると、ほかの欄へ移せます</div>
       <div id="groups"></div>
       <div class="legend"><span><i style="background:var(--hon)"></i>本業</span><span><i style="background:var(--fuku)"></i>副業</span></div>
     </div>
@@ -516,11 +528,80 @@ body[data-tab="副業"]{
     if (opts.hint && items.length) g.appendChild(el("div", { cls:"hint", text: opts.hint }));
     const list = el("div", { cls:"list" });
     if (!items.length) list.appendChild(el("div", { cls:"empty", text: "今はありません" }));
-    items.forEach(x => list.appendChild(row(x.it, Object.assign({}, opts, { stage: x.stage }))));
+    items.forEach(x => {
+      const r = row(x.it, Object.assign({}, opts, { stage: x.stage }));
+      list.appendChild(opts.key ? swipeWrap(r, x.it, opts.key) : r);
+    });
     g.appendChild(list);
     return g;
   }
+  // ===== 左にスライドして移動 =====
+  const MOVE_TO = {
+    mine: { sym:"⓪", label:"自分で\nやる", cls:"mv-mine", msg:"自分でやることに移しました" },
+    todo: { sym:"①", label:"まだ\n手つかず", cls:"mv-todo", msg:"まだ手をつけていないに移しました" },
+    ai:   { sym:"②", label:"AIに\n任せる", cls:"mv-ai", msg:"AIが作業中に移しました" }
+  };
+  let openRow = null, suppressClick = false;
+  function closeOpen(){ if (openRow) { openRow.style.transform = ""; openRow.classList.remove("open"); openRow = null; } }
+  function swipeWrap(r, it, key){
+    const targets = Object.keys(MOVE_TO).filter(k => k !== key);
+    const W = 78 * targets.length;
+    const acts = el("div", { cls:"acts" });
+    targets.forEach(k => {
+      const t = MOVE_TO[k];
+      const b = el("button", { cls:"mv " + t.cls, type:"button", text: t.label });
+      b.disabled = busy || !!pending;
+      b.onclick = () => { closeOpen(); moveTask(it, t); };
+      acts.appendChild(b);
+    });
+    const wrap = el("div", { cls:"swipe" }, [acts, r]);
+    let sx = 0, sy = 0, dx = 0, base = 0, drag = false, decided = false;
+    r.addEventListener("pointerdown", e => {
+      if (openRow && openRow !== r) closeOpen();
+      sx = e.clientX; sy = e.clientY; dx = 0; drag = true; decided = false;
+      base = r.classList.contains("open") ? -W : 0;
+    });
+    r.addEventListener("pointermove", e => {
+      if (!drag) return;
+      const mx = e.clientX - sx, my = e.clientY - sy;
+      if (!decided) {
+        if (Math.abs(mx) < 8 && Math.abs(my) < 8) return;
+        decided = true;
+        if (Math.abs(my) > Math.abs(mx)) { drag = false; return; }
+        r.classList.add("dragging");
+        try { r.setPointerCapture(e.pointerId); } catch(_) {}
+      }
+      dx = Math.min(0, Math.max(-W - 24, base + mx));
+      r.style.transform = `translateX(${dx}px)`;
+    });
+    const end = () => {
+      if (!drag) return; drag = false;
+      if (!decided) return;
+      r.classList.remove("dragging");
+      suppressClick = true; setTimeout(() => suppressClick = false, 60);
+      if (dx < -W / 2) { r.style.transform = `translateX(${-W}px)`; r.classList.add("open"); openRow = r; }
+      else { r.style.transform = ""; r.classList.remove("open"); if (openRow === r) openRow = null; }
+    };
+    r.addEventListener("pointerup", end);
+    r.addEventListener("pointercancel", end);
+    r.addEventListener("click", e => {
+      if (suppressClick || r.classList.contains("open")) {
+        e.stopPropagation(); e.preventDefault();
+        if (!suppressClick) closeOpen();
+      }
+    }, true);
+    return wrap;
+  }
+  function moveTask(it, t){
+    mutate(lines => {
+      const i = lines.findIndex(l => l === it.raw); if (i < 0) return false;
+      lines.splice(i, 1);
+      return insertInto(lines, title => title.startsWith(t.sym), it.raw);
+    }, t.msg);
+  }
+
   function render(){
+    openRow = null;
     if (!boardText) { $("groups").replaceChildren(); $("stats").hidden = true; return; }
     const { mine, todo, ai, done } = grouped();
     document.body.dataset.tab = filter;
@@ -539,7 +620,7 @@ body[data-tab="副業"]{
       done.forEach(x => list.appendChild(row(x.it,{done:true})));
       dg.appendChild(list);
     }
-    $("groups").replaceChildren(group("自分でやること", mine, { checkable:true }), group("まだ手をつけていない", todo, { checkable:true, ask:true, hint:"「Claudeに頼む」を押すと、Claudeのチャットが開きます" }), group("AIが作業中", ai, {}), dg);
+    $("groups").replaceChildren(group("自分でやること", mine, { checkable:true, key:"mine" }), group("まだ手をつけていない", todo, { checkable:true, ask:true, key:"todo", hint:"「Claudeに頼む」を押すと、Claudeのチャットが開きます" }), group("AIが作業中", ai, { key:"ai" }), dg);
   }
   function show(){
     const ok = loggedIn();
