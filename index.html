@@ -226,6 +226,10 @@ body[data-tab="副業"]{
 .swipe .row.dragging{transition:none}
 .swipe-hint{font-size:12px;color:#8d8f96;text-align:center;margin-top:-8px}
 
+/* 右下の＋・入力シート・お知らせを、いつも一番手前に */
+.fab{z-index:40}
+.sheet{z-index:50}
+.toast{z-index:60}
 [hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){.spin svg{animation:none}*{transition:none!important}}
 </style>
