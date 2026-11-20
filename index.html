@@ -179,6 +179,19 @@ body{background:radial-gradient(140% 520px at 50% -10%,var(--surface-2) 0%,trans
   .check{background:transparent}
 }
 
+/* ===== タブごとのロイヤルカラー（すべて＝ネイビー／本業＝オレンジ／副業＝ブラウン） ===== */
+:root{ --hon:#ffab5e; --hon-soft:#3b2310; --fuku:#d8b08a; --fuku-soft:#2f2117; }
+body{ --navy-1:#071431; --navy-2:#1f3f8a; --theme-act:linear-gradient(180deg,#3159b0 0%,#13306e 100%); --glow:rgba(40,80,170,.28);
+  background:radial-gradient(140% 520px at 50% -10%,var(--glow) 0%,transparent 100%) no-repeat,var(--bg) }
+body[data-tab="本業"]{ --navy-1:#3a1503; --navy-2:#c9590e; --theme-act:linear-gradient(180deg,#f39237 0%,#b9490a 100%); --glow:rgba(210,100,20,.26) }
+body[data-tab="副業"]{ --navy-1:#1c0f08; --navy-2:#7d4526; --theme-act:linear-gradient(180deg,#a7653a 0%,#5c311a 100%); --glow:rgba(140,80,45,.28) }
+.hero{ background:
+   radial-gradient(120% 90% at 100% 0%,rgba(255,255,255,.14) 0%,transparent 55%),
+   linear-gradient(155deg,var(--navy-2) 0%,var(--navy-1) 78%) }
+.tabs button[aria-pressed="true"]{ background:var(--theme-act); color:#ffffff; box-shadow:inset 0 1px 0 rgba(255,255,255,.3) }
+.group h2 small{ background:var(--theme-act); color:#ffffff }
+.row.checked .check{ background:var(--theme-act); color:#ffffff; border-color:transparent }
+
 [hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){.spin svg{animation:none}*{transition:none!important}}
 </style>
@@ -485,6 +498,8 @@ body{background:radial-gradient(140% 520px at 50% -10%,var(--surface-2) 0%,trans
   function render(){
     if (!boardText) { $("groups").replaceChildren(); $("stats").hidden = true; return; }
     const { mine, todo, ai, done } = grouped();
+    document.body.dataset.tab = filter;
+    { const tc = { "all":"#071431", "本業":"#3a1503", "副業":"#1c0f08" }[filter] || "#071431"; const m = document.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute("content", tc); }
     $("stats").hidden = false;
     $("cMine").textContent = mine.length; $("cTodo").textContent = todo.length; $("cAi").textContent = ai.length;
     $("sAi").classList.toggle("hot", ai.length > 0);

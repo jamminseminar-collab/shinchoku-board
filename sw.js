@@ -1,6 +1,6 @@
 // 画面の部品だけを手元に残して、電波が弱いときでもすぐ開けるようにする。
 // ボードの中身（Dropbox）はここでは扱わない。
-const CACHE = "shinchoku-v8";
+const CACHE = "shinchoku-v9";
 const FILES = ["./", "./index.html", "./manifest.json", "./icon-180.png", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", e => {
