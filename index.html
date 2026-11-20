@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>進み具合ボード</title>
-<meta name="theme-color" content="#0a1630">
+<meta name="theme-color" content="#070d1a">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="進み具合">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="manifest" href="manifest.json">
@@ -26,7 +26,7 @@
   --num:"Outfit","Helvetica Neue",Arial,sans-serif;
   color-scheme:light;
 }
-@media (prefers-color-scheme: dark){:root{
+@media all{:root{
   --bg:#0b1311; --surface:#141e1b; --surface-2:#18241f; --line:#22312c; --ring:#46584f; --fg:#e6efec; --muted:#8fa29c;
   --ink-1:#0f2a24; --ink-2:#1d4a40; --ink-fg:#eaf4f1; --ink-muted:#a7c7bd;
   --accent:#3fc9a2; --accent-strong:#3fc9a2; --accent-ink:#06231b; --accent-soft:#16352d;
@@ -139,7 +139,7 @@ button:disabled{opacity:.45}
   --silver:linear-gradient(180deg,#ffffff 0%,#e3e8ee 38%,#9aa5b2 54%,#d3dae2 72%,#f7f9fb 100%);
   --silver-line:linear-gradient(90deg,transparent,#c9d1db 25%,#ffffff 50%,#c9d1db 75%,transparent);
   --card-grad:linear-gradient(180deg,#ffffff 0%,#f2f4f7 100%); --edge:rgba(255,255,255,.95) }
-@media (prefers-color-scheme: dark){:root{ --bg:#070d1a; --surface:#0f1a30; --surface-2:#14213b; --line:#1f2f4f; --ring:#4a5d80; --fg:#e8edf5; --muted:#8e9bb3;
+@media all{:root{ --bg:#070d1a; --surface:#0f1a30; --surface-2:#14213b; --line:#1f2f4f; --ring:#4a5d80; --fg:#e8edf5; --muted:#8e9bb3;
   --navy-1:#0b1730; --navy-2:#1d3566; --accent:#c8d2e0; --accent-strong:#c8d2e0; --accent-ink:#0a1630; --accent-soft:#1b2a48;
   --hon:#9db8f2; --hon-soft:#16264a; --card-grad:linear-gradient(180deg,#111d35 0%,#0c1629 100%); --edge:rgba(255,255,255,.05); color-scheme:dark }}
 body{background:radial-gradient(140% 520px at 50% -10%,var(--surface-2) 0%,transparent 100%) no-repeat,var(--bg)}
@@ -174,7 +174,7 @@ body{background:radial-gradient(140% 520px at 50% -10%,var(--surface-2) 0%,trans
 .sheet{background:var(--card-grad)}
 .toast{background:var(--navy-1);color:#f3f6fa}
 .toast button{color:#c8d2e0}
-@media (prefers-color-scheme: dark){
+@media all{
   .tabs button[aria-pressed="true"],.go,.btn-main,.group h2 small,.row.checked .check{background:linear-gradient(180deg,#f4f7fa 0%,#cdd5df 100%);color:#0a1630;border-color:transparent;text-shadow:none}
   .check{background:transparent}
 }
