@@ -800,7 +800,13 @@ body[data-tab="副業"]{
         const sel = el("select", { cls:"owner-sel " + (OWNER_CLS[r.owner] || ""), "aria-label":"「" + r.name + "」の担当" });
         OWNERS.forEach(o => { const op = el("option", { value:o, text:o }); if (o === r.owner) op.selected = true; sel.appendChild(op); });
         sel.disabled = busy;
-        sel.onchange = () => changeOwner(r, sel.value);
+        sel.onchange = () => {
+          // 選んだ瞬間に、色とボタンを新しい担当に切り替える（保存は後ろで行う）
+          const old = r.owner; const to = sel.value;
+          r.owner = to; sel.className = "owner-sel " + (OWNER_CLS[to] || "");
+          const btnNow = body.querySelector(".go"); if (btnNow) btnNow.replaceWith(actionFor(r));
+          changeOwner(r, old, to);
+        };
         const body = el("div", { cls:"body" }, [
           el("div", { cls:"role-top" }, [ el("div", { cls:"ttl", text:r.name }), sel ]),
         ]);
@@ -816,8 +822,8 @@ body[data-tab="副業"]{
       return g;
     }));
   }
-  async function changeOwner(r, to){
-    if (busy || to === r.owner) return;
+  async function changeOwner(r, from, to){
+    if (busy || to === from) return;
     busy = true; setNote("保存中…");
     try {
       const fresh = await download(ROLES_PATH);
@@ -831,7 +837,7 @@ body[data-tab="副業"]{
         rolesText = text; store.set("roles_cache", text);
         setNote(`${stamp()} に保存しました`); toast(`担当を${to}にしました`);
       }
-    } catch(e) { setNote(explain(e), true); }
+    } catch(e) { setNote(explain(e), true); toast("保存できませんでした。担当を元に戻しました", null, 3200); }
     busy = false; renderRoles();
   }
 
