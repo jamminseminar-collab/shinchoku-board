@@ -231,6 +231,8 @@ body[data-tab="副業"]{
 .due-row span{flex:none}
 .due-row input{flex:1;min-width:0;font:inherit;font-size:16px;padding:10px 12px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface-2);color:var(--fg)}
 .due-row button{flex:none;font-size:13px;color:var(--muted);padding:8px}
+.btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px}
+.go-sub{background:rgba(0,0,0,.35)!important;color:#fff!important;border:1px solid rgba(255,255,255,.35)!important}
 /* 右下の＋・入力シート・お知らせを、いつも一番手前に */
 .fab{z-index:40}
 .sheet{z-index:50}
@@ -317,7 +319,7 @@ body[data-tab="副業"]{
   const PATH = "/AI_Knowledge/06_プロジェクト/00_進み具合ボード.md";
   const REDIRECT = location.origin + location.pathname;
   const STAGE_RE = /^[⓪①②③④⑤⑥⑦⑧⑨⑩]/;
-  const AI_LABEL = { "②":"Codexへの依頼を準備中", "③":"Codexが作業中", "④":"Claudeがチェック中" };
+  const AI_LABEL = { "②":"依頼待ち（まだ始まっていません）", "③":"Codexが作業中", "④":"Claudeがチェック中" };
 
   const $ = id => document.getElementById(id);
   const store = {
@@ -523,13 +525,27 @@ body[data-tab="副業"]{
       body.appendChild(el("a", { cls:"go", href: link, target:"_blank", rel:"noopener", text:"Claudeのチャットを開く →" }));
     } else if (/^https:\/\/mail\.google\.com\//.test(link)) {
       body.appendChild(el("a", { cls:"go", href: link, target:"_blank", rel:"noopener", text:"Gmailでメールを開く →" }));
-    } else if (opts.ask) {
-      const msg = `進み具合ボード（Dropbox /AI_Knowledge/06_プロジェクト/00_進み具合ボード.md）のこのタスクを進めてください。\n${it.raw.replace(/^\s*-\s/, "")}`;
-      body.appendChild(el("a", { cls:"go", href: "https://claude.ai/new?q=" + encodeURIComponent(msg), target:"_blank", rel:"noopener", text:"Claudeに頼む →" }));
+    } else if (opts.ask || opts.stage === AI_LABEL["②"]) {
+      const line = it.raw.replace(/^\s*-\s/, "");
+      const msg = `進み具合ボード（Dropbox /AI_Knowledge/06_プロジェクト/00_進み具合ボード.md）のこのタスクを進めてください。始めるときは、ボードのこの行の最後に「｜リンク：（このチャットのURL）」を書いてください。\n${line}`;
+      const btns = el("div", { cls:"btns" });
+      btns.appendChild(el("a", { cls:"go", href: "https://claude.ai/new?q=" + encodeURIComponent(msg), target:"_blank", rel:"noopener", text:"Claudeへ作業依頼 →" }));
+      if (!opts.ask) {
+        const letter = "【Claudeからのお手紙】\n■恒松さんがすること：このお手紙をCodexに貼るだけです。\n■Codexがすること：\n進み具合ボード（Dropbox /AI_Knowledge/06_プロジェクト/00_進み具合ボード.md）の次のタスクを進めてください。作業の前に /AI_Knowledge/AGENTS.md を読んでください。\n" + line + "\n始めるときにボードのこの行を「## ③ Codex作業中」へ移し、終わったら「## ④ Claudeのチェック待ち」へ移してください。\n返信不要";
+        const cb = el("button", { cls:"go go-sub", type:"button", text:"Codexへのお手紙をコピー" });
+        cb.onclick = async e => {
+          e.stopPropagation();
+          try { await navigator.clipboard.writeText(letter); toast("コピーしました。Codexに貼り付けてください", null, 3200); }
+          catch(_) { toast("コピーできませんでした。もう一度押してください", null, 3200); }
+        };
+        btns.appendChild(cb);
+      }
+      body.appendChild(btns);
     }
     // 行のどこを押しても、ボタンと同じ飛び先を開く
     const go = body.querySelector("a.go");
-    if (go) { body.classList.add("tap"); body.onclick = e => { if (e.target !== go) go.click(); }; }
+    // （Codexのコピーボタンを押したときは、行のタップ扱いにしない）
+    if (go) { body.classList.add("tap"); body.onclick = e => { if (e.target !== go && !e.target.closest("button")) go.click(); }; }
     r.appendChild(body);
     return r;
   }
@@ -549,7 +565,7 @@ body[data-tab="副業"]{
   const MOVE_TO = {
     mine: { sym:"⓪", label:"自分で\nやる", cls:"mv-mine", msg:"自分でやることに移しました" },
     todo: { sym:"①", label:"まだ\n手つかず", cls:"mv-todo", msg:"まだ手をつけていないに移しました" },
-    ai:   { sym:"②", label:"AIに\n任せる", cls:"mv-ai", msg:"AIが作業中に移しました" }
+    ai:   { sym:"②", label:"AIに\n任せる", cls:"mv-ai", msg:"AIに任せたことに移しました。ボタンで依頼すると始まります" }
   };
   let openRow = null, suppressClick = false;
   function closeOpen(){ if (openRow) { openRow.style.transform = ""; openRow.classList.remove("open"); openRow = null; } }
@@ -634,7 +650,7 @@ body[data-tab="副業"]{
       done.forEach(x => list.appendChild(row(x.it,{done:true})));
       dg.appendChild(list);
     }
-    $("groups").replaceChildren(group("自分でやること", mine, { checkable:true, key:"mine" }), group("まだ手をつけていない", todo, { checkable:true, ask:true, key:"todo", hint:"「Claudeに頼む」を押すと、Claudeのチャットが開きます" }), group("AIが作業中", ai, { key:"ai" }), dg);
+    $("groups").replaceChildren(group("自分でやること", mine, { checkable:true, key:"mine" }), group("まだ手をつけていない", todo, { checkable:true, ask:true, key:"todo", hint:"「Claudeへ作業依頼」を押すと、Claudeのチャットが開きます" }), group("AIに任せたこと", ai, { key:"ai", hint:"「依頼待ち」は、ボタンでClaudeかCodexに頼むと作業が始まります" }), dg);
   }
   function show(){
     const ok = loggedIn();
