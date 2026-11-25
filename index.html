@@ -249,6 +249,16 @@ body[data-tab="副業"]{
 .o-claude{color:#f0a27c!important} .o-codex{color:#b9a3ff!important} .o-gpt{color:#5fd3a8!important} .o-work{color:#7cc4f0!important} .o-gemini{color:#9cb8ff!important}
 .chip.o-claude[aria-pressed="true"],.chip.o-codex[aria-pressed="true"],.chip.o-gpt[aria-pressed="true"],.chip.o-work[aria-pressed="true"],.chip.o-gemini[aria-pressed="true"]{color:#111!important}
 
+.seg-sort{display:flex;align-items:center;gap:6px;font-size:12px;color:#9a9ca3}
+.seg-sort span{margin-right:4px}
+.seg-sort button{padding:6px 12px;border-radius:999px;border:1px solid #2a2a2f;background:#121214;color:#c9ccd2;font-size:12px;font-weight:700}
+.seg-sort button[aria-pressed="true"]{background:#f2f3f5;color:#111;border-color:transparent}
+.role-acts{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.role-acts .go{margin-top:0}
+.mini{min-width:40px;height:34px;padding:0 12px;border-radius:999px;border:1px solid rgba(255,255,255,.3);background:rgba(0,0,0,.3);color:#fff;font-size:13px;font-weight:700}
+.mini:disabled{opacity:.3}
+.fld{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+
 /* 右下の＋・入力シート・お知らせを、いつも一番手前に */
 .fab{z-index:40}
 .sheet{z-index:50}
@@ -306,7 +316,12 @@ body[data-tab="副業"]{
   <div id="rolesView" hidden>
     <div class="wrap">
       <div class="chips" id="ownerChips" role="group" aria-label="担当で絞り込む"></div>
-      <div class="swipe-hint">ボタンを押すと、その担当に指示を出せます。担当は右上の選択で変えられます</div>
+      <div class="seg-sort" id="roleSort" role="group" aria-label="並べ方">
+        <span>並べ方</span>
+        <button type="button" data-s="file">自分の順番</button>
+        <button type="button" data-s="owner">担当ごと</button>
+      </div>
+      <div class="swipe-hint" id="roleHint"></div>
       <div id="roles"></div>
     </div>
   </div>
@@ -342,6 +357,18 @@ body[data-tab="副業"]{
   <button type="button" class="menu-item" data-view="roles"><b>役割の一覧</b><span>Claude・Codex・ChatGPTのだれが何を担当しているか</span></button>
   <button type="button" class="btn-sub" id="menuClose">閉じる</button>
 </div>
+
+<form class="sheet" id="roleSheet" hidden>
+  <h3>役割を直す</h3>
+  <label class="fld"><span>仕事の名前</span><input type="text" id="rName" autocomplete="off"></label>
+  <label class="fld"><span>いつ（なくてもOK）</span><input type="text" id="rWhen" autocomplete="off" placeholder="例：毎日 10:00"></label>
+  <label class="fld"><span>内容</span><input type="text" id="rWhat" autocomplete="off"></label>
+  <label class="fld"><span>メモ（なくてもOK）</span><input type="text" id="rMemo" autocomplete="off"></label>
+  <div class="sheet-acts">
+    <button type="button" class="btn-sub" id="rCancel">やめる</button>
+    <button type="submit" class="btn-main" id="rSave">保存する</button>
+  </div>
+</form>
 
 <div class="toast" id="toast" hidden><span id="toastText"></span><button type="button" id="undo" hidden>取り消す</button></div>
 
@@ -779,6 +806,8 @@ body[data-tab="副業"]{
     };
     return b;
   }
+  let roleSort = store.get("roleSort") || "file";
+  let editingRole = null;
   function renderRoles(){
     const box = $("roles");
     if (!rolesText) { box.replaceChildren(el("div", { cls:"empty", text:"役割の一覧を読み込み中です。右上の矢印で読み込み直せます" })); $("ownerChips").replaceChildren(); return; }
@@ -791,56 +820,101 @@ body[data-tab="副業"]{
       b.onclick = () => { ownerFilter = o; store.set("ownerFilter", o); renderRoles(); };
       return b;
     }));
+    document.querySelectorAll("#roleSort button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.s === roleSort)));
+    const canMove = roleSort === "file" && ownerFilter === "all";
+    $("roleHint").textContent = canMove
+      ? "▲▼で並び順を変えられます。「直す」で名前や内容を書き換えられます"
+      : "並び順を変えるときは、「すべて」と「自分の順番」を選んでください";
     box.replaceChildren(...secs.map(sec => {
-      const items = sec.items.filter(r => ownerFilter === "all" || r.owner === ownerFilter);
+      let items = sec.items.filter(r => ownerFilter === "all" || r.owner === ownerFilter);
+      if (roleSort === "owner") items = items.slice().sort((x, y) => OWNERS.indexOf(x.owner) - OWNERS.indexOf(y.owner));
       const g = el("section", { cls:"group" }, [ el("h2", {}, [ sec.title.replace(/（.*?）/g, ""), el("small", { text:String(items.length) }) ]) ]);
       const list = el("div", { cls:"list" });
       if (!items.length) list.appendChild(el("div", { cls:"empty", text:"今はありません" }));
-      items.forEach(r => {
+      items.forEach((r, idx) => {
         const sel = el("select", { cls:"owner-sel " + (OWNER_CLS[r.owner] || ""), "aria-label":"「" + r.name + "」の担当" });
         OWNERS.forEach(o => { const op = el("option", { value:o, text:o }); if (o === r.owner) op.selected = true; sel.appendChild(op); });
         sel.disabled = busy;
+        const body = el("div", { cls:"body" }, [ el("div", { cls:"role-top" }, [ el("div", { cls:"ttl", text:r.name }), sel ]) ]);
         sel.onchange = () => {
-          // 選んだ瞬間に、色とボタンを新しい担当に切り替える（保存は後ろで行う）
-          const old = r.owner; const to = sel.value;
+          const old = r.owner, to = sel.value;
           r.owner = to; sel.className = "owner-sel " + (OWNER_CLS[to] || "");
           const btnNow = body.querySelector(".go"); if (btnNow) btnNow.replaceWith(actionFor(r));
-          changeOwner(r, old, to);
+          saveRoles(lines => { const i = lines.indexOf(r.raw); if (i < 0) return false; lines[i] = r.raw.replace(/【[^】]+】/, `【${to}】`); return true; }, `担当を${to}にしました`, () => { r.owner = old; });
         };
-        const body = el("div", { cls:"body" }, [
-          el("div", { cls:"role-top" }, [ el("div", { cls:"ttl", text:r.name }), sel ]),
-        ]);
         const sub = el("div", { cls:"sub" });
         if (r.when) sub.appendChild(el("span", { cls:"tag stage", text:r.when }));
         if (sub.childNodes.length) body.appendChild(sub);
         if (r.what) body.appendChild(el("div", { cls:"role-what", text:r.what }));
         if (r.memo) body.appendChild(el("div", { cls:"role-memo", text:"メモ：" + r.memo }));
-        body.appendChild(actionFor(r));
+        const acts = el("div", { cls:"role-acts" }, [ actionFor(r) ]);
+        const ed = el("button", { type:"button", cls:"mini", text:"直す" });
+        ed.disabled = busy; ed.onclick = () => openRoleSheet(r);
+        acts.appendChild(ed);
+        if (canMove) {
+          const up = el("button", { type:"button", cls:"mini", "aria-label":"上へ", text:"▲" });
+          const dn = el("button", { type:"button", cls:"mini", "aria-label":"下へ", text:"▼" });
+          up.disabled = busy || idx === 0; dn.disabled = busy || idx === items.length - 1;
+          up.onclick = () => moveRole(r, items.at(idx - 1));
+          dn.onclick = () => moveRole(r, items.at(idx + 1));
+          acts.append(up, dn);
+        }
+        body.appendChild(acts);
         list.appendChild(el("div", { cls:"row role" }, [ body ]));
       });
       g.appendChild(list);
       return g;
     }));
   }
-  async function changeOwner(r, from, to){
-    if (busy || to === from) return;
+  // 並べ替え：隣の行と入れ替える
+  function moveRole(r, other){
+    if (!other) return;
+    saveRoles(lines => {
+      const i = lines.indexOf(r.raw), j = lines.indexOf(other.raw);
+      if (i < 0 || j < 0) return false;
+      lines[i] = other.raw; lines[j] = r.raw; return true;
+    }, "並び順を変えました");
+  }
+  // 名前・いつ・内容・メモを直す
+  function openRoleSheet(r){
+    editingRole = r;
+    $("rName").value = r.name; $("rWhen").value = r.when; $("rWhat").value = r.what; $("rMemo").value = r.memo;
+    $("roleSheet").hidden = false; $("menuSheet").hidden = true;
+    setTimeout(() => $("rName").focus(), 50);
+  }
+  function closeRoleSheet(){ $("roleSheet").hidden = true; editingRole = null; }
+  async function submitRoleSheet(e){
+    e.preventDefault();
+    const r = editingRole; if (!r) return;
+    const clean = v => v.replace(/[｜\n]/g, " ").trim();
+    const name = clean($("rName").value);
+    if (!name) { $("rName").focus(); return; }
+    const when = clean($("rWhen").value), what = clean($("rWhat").value), memo = clean($("rMemo").value);
+    const indent = (r.raw.match(/^\s*/) || [""])[0];
+    const line = `${indent}- 【${r.owner}】${name}` + (when ? `｜いつ：${when}` : "") + (what ? `｜内容：${what}` : "") + (memo ? `｜メモ：${memo}` : "");
+    $("rSave").disabled = true;
+    const ok = await saveRoles(lines => { const i = lines.indexOf(r.raw); if (i < 0) return false; lines[i] = line; return true; }, "直しました");
+    $("rSave").disabled = false;
+    if (ok) closeRoleSheet();
+  }
+  // 役割の一覧のファイルを読み直して、変更して、保存する
+  async function saveRoles(change, okMsg, onFail){
+    if (busy) return false;
     busy = true; setNote("保存中…");
+    let ok = false;
     try {
       const fresh = await download(ROLES_PATH);
       const lines = fresh.text.split("\n");
-      const i = lines.findIndex(l => l === r.raw);
-      if (i < 0) { rolesText = fresh.text; setNote("一覧が変わっていたので最新にしました。もう一度どうぞ", true); }
+      if (!change(lines)) { rolesText = fresh.text; store.set("roles_cache", rolesText); setNote("一覧が変わっていたので最新にしました。もう一度どうぞ", true); if (onFail) onFail(); }
       else {
-        lines[i] = r.raw.replace(/【[^】]+】/, `【${to}】`);
         const text = lines.join("\n").replace(/\s+$/, "") + "\n";
         await upload(text, fresh.rev, ROLES_PATH);
-        rolesText = text; store.set("roles_cache", text);
-        setNote(`${stamp()} に保存しました`); toast(`担当を${to}にしました`);
+        rolesText = text; store.set("roles_cache", text); ok = true;
+        setNote(`${stamp()} に保存しました`); toast(okMsg);
       }
-    } catch(e) { setNote(explain(e), true); toast("保存できませんでした。担当を元に戻しました", null, 3200); }
-    busy = false; renderRoles();
+    } catch(e) { setNote(explain(e), true); toast("保存できませんでした。元に戻しました", null, 3200); if (onFail) onFail(); }
+    busy = false; renderRoles(); return ok;
   }
-
   // ===== ボードに書く =====
   function insertInto(lines, test, newLine){
     const h = lines.findIndex(l => l.startsWith("## ") && test(l.slice(3).trim()));
@@ -932,6 +1006,9 @@ body[data-tab="副業"]{
   }
   $("menuBtn").onclick = () => { $("menuSheet").hidden = !$("menuSheet").hidden; };
   $("menuClose").onclick = () => { $("menuSheet").hidden = true; };
+  $("rCancel").onclick = () => closeRoleSheet();
+  $("roleSheet").addEventListener("submit", submitRoleSheet);
+  document.querySelectorAll("#roleSort button").forEach(b => b.onclick = () => { roleSort = b.dataset.s; store.set("roleSort", roleSort); renderRoles(); });
   document.querySelectorAll(".menu-item").forEach(b => b.onclick = () => setView(b.dataset.view));
   window.addEventListener("hashchange", () => { const v = location.hash === "#roles" ? "roles" : "board"; if (v !== view) { view = v; show(); } });
   $("loginBtn").onclick = () => startLogin();
