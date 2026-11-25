@@ -233,9 +233,26 @@ body[data-tab="副業"]{
 .due-row button{flex:none;font-size:13px;color:var(--muted);padding:8px}
 .btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px}
 .go-sub{background:rgba(0,0,0,.35)!important;color:#fff!important;border:1px solid rgba(255,255,255,.35)!important}
+/* 役割の一覧 */
+.menu-sheet .menu-item{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:14px 16px;border-radius:14px;background:var(--surface-2);border:1px solid var(--line)}
+.menu-item b{font-size:16px}
+.menu-item span{font-size:12px;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:7px 14px;border-radius:999px;border:1px solid #2a2a2f;background:#121214;color:#c9ccd2;font-size:13px;font-weight:700}
+.chip[aria-pressed="true"]{background:#f2f3f5;color:#111;border-color:transparent}
+.role .body{gap:8px}
+.role-top{display:flex;gap:10px;align-items:flex-start;justify-content:space-between}
+.role-top .ttl{flex:1;min-width:0}
+.owner-sel{flex:none;font:inherit;font-size:12px;font-weight:700;padding:5px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.25);background:rgba(0,0,0,.35);color:#fff;max-width:46%}
+.role-what{font-size:13px;color:rgba(255,255,255,.85);line-height:1.6}
+.role-memo{font-size:12px;color:rgba(255,255,255,.65);border-left:2px solid rgba(255,255,255,.25);padding-left:8px}
+.o-claude{color:#f0a27c!important} .o-codex{color:#b9a3ff!important} .o-gpt{color:#5fd3a8!important} .o-work{color:#7cc4f0!important} .o-gemini{color:#9cb8ff!important}
+.chip.o-claude[aria-pressed="true"],.chip.o-codex[aria-pressed="true"],.chip.o-gpt[aria-pressed="true"],.chip.o-work[aria-pressed="true"],.chip.o-gemini[aria-pressed="true"]{color:#111!important}
+
 /* 右下の＋・入力シート・お知らせを、いつも一番手前に */
 .fab{z-index:40}
 .sheet{z-index:50}
+.menu-sheet{z-index:55}
 .toast{z-index:60}
 [hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){.spin svg{animation:none}*{transition:none!important}}
@@ -247,6 +264,9 @@ body[data-tab="副業"]{
     <div class="hero-top">
       <div class="brand">TODAY'S BOARD</div>
       <div class="icons">
+      <button class="iconbtn" id="menuBtn" type="button" aria-label="メニュー" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
       <button class="iconbtn" id="speak" type="button" aria-label="自分でやることを読み上げる" hidden>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/><path d="M19 6a8.5 8.5 0 0 1 0 12"/></svg>
       </button>
@@ -283,6 +303,13 @@ body[data-tab="副業"]{
       <div class="legend"><span><i style="background:var(--hon)"></i>本業</span><span><i style="background:var(--fuku)"></i>副業</span></div>
     </div>
   </div>
+  <div id="rolesView" hidden>
+    <div class="wrap">
+      <div class="chips" id="ownerChips" role="group" aria-label="担当で絞り込む"></div>
+      <div class="swipe-hint">ボタンを押すと、その担当に指示を出せます。担当は右上の選択で変えられます</div>
+      <div id="roles"></div>
+    </div>
+  </div>
   <div class="note" id="note"></div>
   <div class="foot"><button type="button" id="logout" hidden>Dropboxからログアウト</button></div>
 </div>
@@ -308,6 +335,13 @@ body[data-tab="副業"]{
     <button type="submit" class="btn-main" id="addBtn">入れる</button>
   </div>
 </form>
+
+<div class="sheet menu-sheet" id="menuSheet" hidden>
+  <h3>メニュー</h3>
+  <button type="button" class="menu-item" data-view="board"><b>今日のやること</b><span>進み具合ボード</span></button>
+  <button type="button" class="menu-item" data-view="roles"><b>役割の一覧</b><span>Claude・Codex・ChatGPTのだれが何を担当しているか</span></button>
+  <button type="button" class="btn-sub" id="menuClose">閉じる</button>
+</div>
 
 <div class="toast" id="toast" hidden><span id="toastText"></span><button type="button" id="undo" hidden>取り消す</button></div>
 
@@ -418,8 +452,8 @@ body[data-tab="副業"]{
     return res;
   }
 
-  async function download(){
-    const res = await dbx("https://content.dropboxapi.com/2/files/download", { path: PATH }, null);
+  async function download(path){
+    const res = await dbx("https://content.dropboxapi.com/2/files/download", { path: path || PATH }, null);
     if (res.status === 409) throw { kind: "missing" };
     if (!res.ok) throw { kind: "net" };
     let rev = null;
@@ -428,9 +462,9 @@ body[data-tab="副業"]{
     return { text, rev };
   }
 
-  async function upload(text, rev){
+  async function upload(text, rev, path){
     const mode = rev ? { ".tag": "update", "update": rev } : { ".tag": "overwrite" };
-    const res = await dbx("https://content.dropboxapi.com/2/files/upload", { path: PATH, mode, autorename: false, mute: true }, text);
+    const res = await dbx("https://content.dropboxapi.com/2/files/upload", { path: path || PATH, mode, autorename: false, mute: true }, text);
     if (res.status === 409) throw { kind: "conflict" };
     if (!res.ok) throw { kind: "net" };
     const meta = await res.json();
@@ -438,7 +472,7 @@ body[data-tab="副業"]{
   }
 
   function logout(silent){
-    ["dbx_access","dbx_exp","dbx_refresh","board_cache"].forEach(k => store.del(k));
+    ["dbx_access","dbx_exp","dbx_refresh","board_cache","roles_cache"].forEach(k => store.del(k));
     boardText = ""; boardRev = null;
     if (!silent) setNote("ログアウトしました");
     show();
@@ -654,10 +688,21 @@ body[data-tab="副業"]{
   }
   function show(){
     const ok = loggedIn();
-    $("login").hidden = ok; $("main").hidden = !ok; $("fab").hidden = !ok || !$("sheet").hidden;
-    $("reload").hidden = !ok; $("logout").hidden = !ok;
-    $("speak").hidden = !ok || !("speechSynthesis" in window);
+    const roles = view === "roles";
+    $("login").hidden = ok; $("main").hidden = !ok || roles; $("rolesView").hidden = !ok || !roles;
+    $("fab").hidden = !ok || roles || !$("sheet").hidden;
+    $("reload").hidden = !ok; $("logout").hidden = !ok; $("menuBtn").hidden = !ok;
+    $("speak").hidden = !ok || roles || !("speechSynthesis" in window);
     render();
+    if (roles) {
+      document.body.dataset.tab = "all";
+      $("stats").hidden = true;
+      $("heroMsg").textContent = "役割の一覧";
+      document.querySelector(".brand").textContent = "ROLES";
+      renderRoles();
+    } else {
+      document.querySelector(".brand").textContent = "TODAY'S BOARD";
+    }
   }
   function setNote(text, err){ const n = $("note"); n.textContent = text || ""; n.className = "note" + (err ? " err" : ""); }
   let toastT;
@@ -682,12 +727,112 @@ body[data-tab="副業"]{
     try {
       const r = await download();
       boardText = r.text; boardRev = r.rev; store.set("board_cache", boardText);
+      try { const rr = await download(ROLES_PATH); rolesText = rr.text; store.set("roles_cache", rolesText); } catch(_) {}
       setNote(`${stamp()} の最新です`);
     } catch(e) {
       setNote(explain(e) + (boardText ? "（前回の内容を表示中）" : ""), true);
     }
     $("reload").classList.remove("spin");
     show();
+  }
+
+
+  // ===== 役割の一覧 =====
+  const ROLES_PATH = "/AI_Knowledge/06_プロジェクト/00_役割一覧.md";
+  const OWNERS = ["Claude", "Codex", "ChatGPT", "ChatGPT Work", "Gemini"];
+  const OWNER_CLS = { "Claude":"o-claude", "Codex":"o-codex", "ChatGPT":"o-gpt", "ChatGPT Work":"o-work", "Gemini":"o-gemini" };
+  let rolesText = store.get("roles_cache") || "";
+  let ownerFilter = store.get("ownerFilter") || "all";
+  let view = location.hash === "#roles" ? "roles" : "board";
+  function setView(v){
+    view = v;
+    try { history.replaceState(null, "", v === "roles" ? "#roles" : location.pathname); } catch(_) {}
+    $("menuSheet").hidden = true;
+    show(); window.scrollTo(0, 0);
+  }
+  function parseRoles(text){
+    const secs = []; let cur = null;
+    text.split("\n").forEach(ln => {
+      if (ln.startsWith("## ")) { cur = { title: ln.slice(3).trim(), items: [] }; secs.push(cur); }
+      else if (cur && /^\s*-\s【/.test(ln)) {
+        const parts = ln.replace(/^\s*-\s/, "").split("｜");
+        const m = parts[0].match(/^【([^】]+)】\s*(.*)$/); if (!m) return;
+        const f = {}; parts.slice(1).forEach(p => { const mm = p.match(/^\s*([^：:]{1,6})[：:]\s*(.*)$/); if (mm) f[mm[1].trim()] = mm[2].trim(); });
+        cur.items.push({ raw: ln, owner: m[1].trim(), name: m[2].trim(), when: f["いつ"] || "", what: f["内容"] || "", memo: f["メモ"] || "" });
+      }
+    });
+    return secs.filter(x => x.items.length && !x.title.startsWith("ルール"));
+  }
+  function instruction(r){
+    return `「${r.name}」について指示です（担当：${r.owner}）。\n今の設定：${r.when ? "いつ " + r.when + "／" : ""}${r.what}\n\nお願いしたいこと：`;
+  }
+  function actionFor(r){
+    const q = encodeURIComponent(instruction(r));
+    if (r.owner === "Claude") return el("a", { cls:"go", href:"https://claude.ai/new?q=" + q, target:"_blank", rel:"noopener", text:"Claudeに指示する →" });
+    if (r.owner === "ChatGPT" || r.owner === "ChatGPT Work") return el("a", { cls:"go", href:"https://chatgpt.com/?q=" + q, target:"_blank", rel:"noopener", text: r.owner + "に指示する →" });
+    if (r.owner === "Gemini") return el("a", { cls:"go", href:"https://gemini.google.com/app", target:"_blank", rel:"noopener", text:"Geminiを開く →" });
+    const b = el("button", { cls:"go", type:"button", text:"Codexへの指示をコピー" });
+    b.onclick = async () => {
+      const letter = "【Claudeからのお手紙】\n■恒松さんがすること：このお手紙をCodexに貼るだけです。\n■Codexがすること：\n" + instruction(r);
+      try { await navigator.clipboard.writeText(letter); toast("コピーしました。PCのCodexに貼り付けてください", null, 3200); }
+      catch(_) { toast("コピーできませんでした。もう一度押してください", null, 3200); }
+    };
+    return b;
+  }
+  function renderRoles(){
+    const box = $("roles");
+    if (!rolesText) { box.replaceChildren(el("div", { cls:"empty", text:"役割の一覧を読み込み中です。右上の矢印で読み込み直せます" })); $("ownerChips").replaceChildren(); return; }
+    const secs = parseRoles(rolesText);
+    const all = secs.flatMap(x => x.items);
+    const chips = ["all", ...OWNERS.filter(o => all.some(r => r.owner === o))];
+    $("ownerChips").replaceChildren(...chips.map(o => {
+      const n = o === "all" ? all.length : all.filter(r => r.owner === o).length;
+      const b = el("button", { type:"button", cls:"chip " + (OWNER_CLS[o] || ""), "aria-pressed": String(ownerFilter === o), text: (o === "all" ? "すべて" : o) + " " + n });
+      b.onclick = () => { ownerFilter = o; store.set("ownerFilter", o); renderRoles(); };
+      return b;
+    }));
+    box.replaceChildren(...secs.map(sec => {
+      const items = sec.items.filter(r => ownerFilter === "all" || r.owner === ownerFilter);
+      const g = el("section", { cls:"group" }, [ el("h2", {}, [ sec.title.replace(/（.*?）/g, ""), el("small", { text:String(items.length) }) ]) ]);
+      const list = el("div", { cls:"list" });
+      if (!items.length) list.appendChild(el("div", { cls:"empty", text:"今はありません" }));
+      items.forEach(r => {
+        const sel = el("select", { cls:"owner-sel " + (OWNER_CLS[r.owner] || ""), "aria-label":"「" + r.name + "」の担当" });
+        OWNERS.forEach(o => { const op = el("option", { value:o, text:o }); if (o === r.owner) op.selected = true; sel.appendChild(op); });
+        sel.disabled = busy;
+        sel.onchange = () => changeOwner(r, sel.value);
+        const body = el("div", { cls:"body" }, [
+          el("div", { cls:"role-top" }, [ el("div", { cls:"ttl", text:r.name }), sel ]),
+        ]);
+        const sub = el("div", { cls:"sub" });
+        if (r.when) sub.appendChild(el("span", { cls:"tag stage", text:r.when }));
+        if (sub.childNodes.length) body.appendChild(sub);
+        if (r.what) body.appendChild(el("div", { cls:"role-what", text:r.what }));
+        if (r.memo) body.appendChild(el("div", { cls:"role-memo", text:"メモ：" + r.memo }));
+        body.appendChild(actionFor(r));
+        list.appendChild(el("div", { cls:"row role" }, [ body ]));
+      });
+      g.appendChild(list);
+      return g;
+    }));
+  }
+  async function changeOwner(r, to){
+    if (busy || to === r.owner) return;
+    busy = true; setNote("保存中…");
+    try {
+      const fresh = await download(ROLES_PATH);
+      const lines = fresh.text.split("\n");
+      const i = lines.findIndex(l => l === r.raw);
+      if (i < 0) { rolesText = fresh.text; setNote("一覧が変わっていたので最新にしました。もう一度どうぞ", true); }
+      else {
+        lines[i] = r.raw.replace(/【[^】]+】/, `【${to}】`);
+        const text = lines.join("\n").replace(/\s+$/, "") + "\n";
+        await upload(text, fresh.rev, ROLES_PATH);
+        rolesText = text; store.set("roles_cache", text);
+        setNote(`${stamp()} に保存しました`); toast(`担当を${to}にしました`);
+      }
+    } catch(e) { setNote(explain(e), true); }
+    busy = false; renderRoles();
   }
 
   // ===== ボードに書く =====
@@ -779,6 +924,10 @@ body[data-tab="副業"]{
     document.querySelectorAll(".kinds button[data-w]").forEach(c => c.setAttribute("aria-pressed", String(c.dataset.w === addWho)));
     if (open) setTimeout(() => $("addInput").focus(), 50);
   }
+  $("menuBtn").onclick = () => { $("menuSheet").hidden = !$("menuSheet").hidden; };
+  $("menuClose").onclick = () => { $("menuSheet").hidden = true; };
+  document.querySelectorAll(".menu-item").forEach(b => b.onclick = () => setView(b.dataset.view));
+  window.addEventListener("hashchange", () => { const v = location.hash === "#roles" ? "roles" : "board"; if (v !== view) { view = v; show(); } });
   $("loginBtn").onclick = () => startLogin();
   $("logout").onclick = () => logout(false);
   $("speak").onclick = () => speakToday();
