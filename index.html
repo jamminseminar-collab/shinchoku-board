@@ -259,6 +259,11 @@ body[data-tab="副業"]{
 .mini:disabled{opacity:.3}
 .fld{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
 
+.can-sort .row.role{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;cursor:grab;position:relative}
+.grip{flex:none;color:rgba(255,255,255,.35);font-size:14px;letter-spacing:-2px;line-height:1;margin-top:4px}
+.row.role.lifting{z-index:5;cursor:grabbing;box-shadow:0 18px 40px rgba(0,0,0,.6),0 0 0 2px rgba(255,255,255,.55);scale:1.02;transition:none}
+.sorting .row.role:not(.lifting){transition:none}
+
 /* 右下の＋・入力シート・お知らせを、いつも一番手前に */
 .fab{z-index:40}
 .sheet{z-index:50}
@@ -823,7 +828,7 @@ body[data-tab="副業"]{
     document.querySelectorAll("#roleSort button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.s === roleSort)));
     const canMove = roleSort === "file" && ownerFilter === "all";
     $("roleHint").textContent = canMove
-      ? "▲▼で並び順を変えられます。「直す」で名前や内容を書き換えられます"
+      ? "カードを長押し（パソコンはクリックしたまま）して上下に動かすと、並び順を変えられます"
       : "並び順を変えるときは、「すべて」と「自分の順番」を選んでください";
     box.replaceChildren(...secs.map(sec => {
       let items = sec.items.filter(r => ownerFilter === "all" || r.owner === ownerFilter);
@@ -851,29 +856,76 @@ body[data-tab="副業"]{
         const ed = el("button", { type:"button", cls:"mini", text:"直す" });
         ed.disabled = busy; ed.onclick = () => openRoleSheet(r);
         acts.appendChild(ed);
-        if (canMove) {
-          const up = el("button", { type:"button", cls:"mini", "aria-label":"上へ", text:"▲" });
-          const dn = el("button", { type:"button", cls:"mini", "aria-label":"下へ", text:"▼" });
-          up.disabled = busy || idx === 0; dn.disabled = busy || idx === items.length - 1;
-          up.onclick = () => moveRole(r, items.at(idx - 1));
-          dn.onclick = () => moveRole(r, items.at(idx + 1));
-          acts.append(up, dn);
-        }
         body.appendChild(acts);
-        list.appendChild(el("div", { cls:"row role" }, [ body ]));
+        const card = el("div", { cls:"row role", "data-raw": r.raw }, [ body ]);
+        if (canMove) card.insertBefore(el("span", { cls:"grip", "aria-hidden":"true", text:"⋮⋮" }), body);
+        list.appendChild(card);
       });
+      if (canMove && items.length > 1) { list.classList.add("can-sort"); enableDrag(list); }
       g.appendChild(list);
       return g;
     }));
   }
-  // 並べ替え：隣の行と入れ替える
-  function moveRole(r, other){
-    if (!other) return;
-    saveRoles(lines => {
-      const i = lines.indexOf(r.raw), j = lines.indexOf(other.raw);
-      if (i < 0 || j < 0) return false;
-      lines[i] = other.raw; lines[j] = r.raw; return true;
-    }, "並び順を変えました");
+  // 並べ替え：カードをつかんで上下に動かす（スマホは長押し、パソコンはクリックしたまま）
+  function enableDrag(list){
+    const cards = () => Array.from(list.querySelectorAll(".row.role"));
+    let drag = null, timer = null, sx = 0, sy = 0;
+    const GAP = 8;
+    const begin = (card, y) => {
+      drag = { card, startY: y, base: cards().map(c => c.dataset.raw) };
+      card.classList.add("lifting"); list.classList.add("sorting");
+      try { navigator.vibrate && navigator.vibrate(15); } catch(_) {}
+    };
+    const follow = y => {
+      const c = drag.card; let dy = y - drag.startY;
+      const next = c.nextElementSibling, prev = c.previousElementSibling;
+      if (next && next.classList.contains("role") && dy > next.offsetHeight / 2 + GAP / 2) { list.insertBefore(next, c); drag.startY += next.offsetHeight + GAP; dy = y - drag.startY; }
+      else if (prev && prev.classList.contains("role") && dy < -(prev.offsetHeight / 2 + GAP / 2)) { list.insertBefore(c, prev); drag.startY -= prev.offsetHeight + GAP; dy = y - drag.startY; }
+      c.style.transform = `translateY(${dy}px)`;
+    };
+    const finish = () => {
+      if (!drag) return; const d = drag; drag = null;
+      d.card.style.transform = ""; d.card.classList.remove("lifting"); list.classList.remove("sorting");
+      suppressClick = true; setTimeout(() => suppressClick = false, 60);
+      const order = cards().map(c => c.dataset.raw);
+      if (order.join("\n") !== d.base.join("\n")) {
+        saveRoles(lines => {
+          const pos = d.base.map(raw => lines.indexOf(raw));
+          if (pos.some(i => i < 0)) return false;
+          pos.slice().sort((a, b) => a - b).forEach((p, k) => { lines[p] = order.at(k); });
+          return true;
+        }, "並び順を変えました");
+      }
+    };
+    const blocked = t => !!t.closest("button,select,a,input") || busy;
+    // スマホ：長押しでつかむ
+    list.addEventListener("touchstart", e => {
+      const card = e.target.closest(".row.role"); if (!card || blocked(e.target)) return;
+      const t = e.touches[0]; sx = t.clientX; sy = t.clientY;
+      timer = setTimeout(() => { timer = null; begin(card, sy); }, 380);
+    }, { passive: true });
+    list.addEventListener("touchmove", e => {
+      const t = e.touches[0];
+      if (timer) { if (Math.abs(t.clientY - sy) > 8 || Math.abs(t.clientX - sx) > 8) { clearTimeout(timer); timer = null; } return; }
+      if (drag) { e.preventDefault(); follow(t.clientY); }
+    }, { passive: false });
+    const tEnd = () => { if (timer) { clearTimeout(timer); timer = null; } finish(); };
+    list.addEventListener("touchend", tEnd);
+    list.addEventListener("touchcancel", tEnd);
+    list.addEventListener("contextmenu", e => { if (e.target.closest(".row.role")) e.preventDefault(); });
+    // パソコン：クリックしたまま動かす
+    list.addEventListener("mousedown", e => {
+      if (e.button !== 0) return;
+      const card = e.target.closest(".row.role"); if (!card || blocked(e.target)) return;
+      const y0 = e.clientY; let started = false;
+      const mm = ev => {
+        if (!started) { if (Math.abs(ev.clientY - y0) < 5) return; started = true; begin(card, y0); }
+        ev.preventDefault(); follow(ev.clientY);
+      };
+      const mu = () => { document.removeEventListener("mousemove", mm); document.removeEventListener("mouseup", mu); if (started) finish(); };
+      document.addEventListener("mousemove", mm);
+      document.addEventListener("mouseup", mu);
+    });
   }
   // 名前・いつ・内容・メモを直す
   function openRoleSheet(r){
