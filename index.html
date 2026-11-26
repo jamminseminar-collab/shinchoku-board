@@ -264,6 +264,16 @@ body[data-tab="副業"]{
 .row.role.lifting{z-index:5;cursor:grabbing;box-shadow:0 18px 40px rgba(0,0,0,.6),0 0 0 2px rgba(255,255,255,.55);scale:1.02;transition:none}
 .sorting .row.role:not(.lifting){transition:none}
 
+.main-lbl{display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex:none;max-width:48%}
+.main-lbl span{font-size:10.5px;color:rgba(255,255,255,.6);font-weight:700;letter-spacing:.08em}
+.main-lbl .owner-sel{max-width:100%}
+.subs-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.subs-lbl{font-size:11px;font-weight:700;color:rgba(255,255,255,.6);letter-spacing:.08em;margin-right:2px}
+.sub-go{font-size:12px;font-weight:700;padding:5px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.3);background:rgba(0,0,0,.3);text-decoration:none}
+.sub-checks{display:flex;flex-wrap:wrap;gap:8px}
+.sub-check{display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface-2);font-size:13px;font-weight:700}
+.sub-check input{width:18px;height:18px;margin:0;padding:0}
+
 /* 右下の＋・入力シート・お知らせを、いつも一番手前に */
 .fab{z-index:40}
 .sheet{z-index:50}
@@ -368,6 +378,7 @@ body[data-tab="副業"]{
   <label class="fld"><span>仕事の名前</span><input type="text" id="rName" autocomplete="off"></label>
   <label class="fld"><span>いつ（なくてもOK）</span><input type="text" id="rWhen" autocomplete="off" placeholder="例：毎日 10:00"></label>
   <label class="fld"><span>内容</span><input type="text" id="rWhat" autocomplete="off"></label>
+  <div class="fld"><span>サブ（メインの代わりに頼めるAI・いくつでも）</span><div class="sub-checks" id="rSubs"></div></div>
   <label class="fld"><span>メモ（なくてもOK）</span><input type="text" id="rMemo" autocomplete="off"></label>
   <div class="sheet-acts">
     <button type="button" class="btn-sub" id="rCancel">やめる</button>
@@ -790,7 +801,9 @@ body[data-tab="副業"]{
         const parts = ln.replace(/^\s*-\s/, "").split("｜");
         const m = parts[0].match(/^【([^】]+)】\s*(.*)$/); if (!m) return;
         const f = {}; parts.slice(1).forEach(p => { const mm = p.match(/^\s*([^：:]{1,6})[：:]\s*(.*)$/); if (mm) f[mm[1].trim()] = mm[2].trim(); });
-        cur.items.push({ raw: ln, owner: m[1].trim(), name: m[2].trim(), when: f["いつ"] || "", what: f["内容"] || "", memo: f["メモ"] || "" });
+        const subs = (f["サブ"] || "").split(/[、,・]+/).map(x => x.trim()).filter(x => x)
+          .map(x => /^chatgpt\s*work$/i.test(x) ? "ChatGPT Work" : x).filter(x => OWNERS.includes(x) && x !== m[1].trim());
+        cur.items.push({ raw: ln, owner: m[1].trim(), name: m[2].trim(), when: f["いつ"] || "", what: f["内容"] || "", subs, memo: f["メモ"] || "" });
       }
     });
     return secs.filter(x => x.items.length && !x.title.startsWith("ルール"));
@@ -798,14 +811,26 @@ body[data-tab="副業"]{
   function instruction(r){
     return `「${r.name}」について指示です（担当：${r.owner}）。\n今の設定：${r.when ? "いつ " + r.when + "／" : ""}${r.what}\n\nお願いしたいこと：`;
   }
-  function actionFor(r){
-    const q = encodeURIComponent(instruction(r));
-    if (r.owner === "Claude") return el("a", { cls:"go", href:"https://claude.ai/new?q=" + q, target:"_blank", rel:"noopener", text:"Claudeに指示する →" });
-    if (r.owner === "ChatGPT" || r.owner === "ChatGPT Work") return el("a", { cls:"go", href:"https://chatgpt.com/?q=" + q, target:"_blank", rel:"noopener", text: r.owner + "に指示する →" });
-    if (r.owner === "Gemini") return el("a", { cls:"go", href:"https://gemini.google.com/app", target:"_blank", rel:"noopener", text:"Geminiを開く →" });
-    const b = el("button", { cls:"go", type:"button", text:"Codexへの指示をコピー" });
+  // 役割の1行を組み立てる（いつ・内容・サブ・メモの順）
+  function buildRoleLine(r, o){
+    const v = Object.assign({ owner:r.owner, name:r.name, when:r.when, what:r.what, subs:r.subs, memo:r.memo }, o || {});
+    const indent = (r.raw.match(/^\s*/) || [""])[0];
+    const subs = (v.subs || []).filter(x => x !== v.owner);
+    return `${indent}- 【${v.owner}】${v.name}` + (v.when ? `｜いつ：${v.when}` : "") + (v.what ? `｜内容：${v.what}` : "")
+      + (subs.length ? `｜サブ：${subs.join("、")}` : "") + (v.memo ? `｜メモ：${v.memo}` : "");
+  }
+  function actionFor(r, who, small){
+    who = who || r.owner;
+    const isSub = who !== r.owner;
+    const text0 = isSub ? `「${r.name}」について、サブとして指示です（メイン担当：${r.owner}）。\n今の設定：${r.when ? "いつ " + r.when + "／" : ""}${r.what}\n\nお願いしたいこと：` : instruction(r);
+    const q = encodeURIComponent(text0);
+    const cls = small ? "sub-go " + (OWNER_CLS[who] || "") : "go";
+    if (who === "Claude") return el("a", { cls, href:"https://claude.ai/new?q=" + q, target:"_blank", rel:"noopener", text: small ? "Claude →" : "Claudeに指示する →" });
+    if (who === "ChatGPT" || who === "ChatGPT Work") return el("a", { cls, href:"https://chatgpt.com/?q=" + q, target:"_blank", rel:"noopener", text: small ? who + " →" : who + "に指示する →" });
+    if (who === "Gemini") return el("a", { cls, href:"https://gemini.google.com/app", target:"_blank", rel:"noopener", text: small ? "Gemini →" : "Geminiを開く →" });
+    const b = el("button", { cls, type:"button", text: small ? "Codex（コピー）" : "Codexへの指示をコピー" });
     b.onclick = async () => {
-      const letter = "【Claudeからのお手紙】\n■恒松さんがすること：このお手紙をCodexに貼るだけです。\n■Codexがすること：\n" + instruction(r);
+      const letter = "【Claudeからのお手紙】\n■恒松さんがすること：このお手紙をCodexに貼るだけです。\n■Codexがすること：\n" + text0;
       try { await navigator.clipboard.writeText(letter); toast("コピーしました。PCのCodexに貼り付けてください", null, 3200); }
       catch(_) { toast("コピーできませんでした。もう一度押してください", null, 3200); }
     };
@@ -840,17 +865,21 @@ body[data-tab="副業"]{
         const sel = el("select", { cls:"owner-sel " + (OWNER_CLS[r.owner] || ""), "aria-label":"「" + r.name + "」の担当" });
         OWNERS.forEach(o => { const op = el("option", { value:o, text:o }); if (o === r.owner) op.selected = true; sel.appendChild(op); });
         sel.disabled = busy;
-        const body = el("div", { cls:"body" }, [ el("div", { cls:"role-top" }, [ el("div", { cls:"ttl", text:r.name }), sel ]) ]);
+        const body = el("div", { cls:"body" }, [ el("div", { cls:"role-top" }, [ el("div", { cls:"ttl", text:r.name }), el("label", { cls:"main-lbl" }, [ el("span", { text:"メイン" }), sel ]) ]) ]);
         sel.onchange = () => {
           const old = r.owner, to = sel.value;
+          // サブから選んだときは、前のメインがサブに回る
+          const newSubs = r.subs.includes(to) ? r.subs.filter(x => x !== to).concat([old]) : r.subs.slice();
+          const line = buildRoleLine(r, { owner: to, subs: newSubs });
           r.owner = to; sel.className = "owner-sel " + (OWNER_CLS[to] || "");
           const btnNow = body.querySelector(".go"); if (btnNow) btnNow.replaceWith(actionFor(r));
-          saveRoles(lines => { const i = lines.indexOf(r.raw); if (i < 0) return false; lines[i] = r.raw.replace(/【[^】]+】/, `【${to}】`); return true; }, `担当を${to}にしました`, () => { r.owner = old; });
+          saveRoles(lines => { const i = lines.indexOf(r.raw); if (i < 0) return false; lines[i] = line; return true; }, `メインを${to}にしました`, () => { r.owner = old; });
         };
         const sub = el("div", { cls:"sub" });
         if (r.when) sub.appendChild(el("span", { cls:"tag stage", text:r.when }));
         if (sub.childNodes.length) body.appendChild(sub);
         if (r.what) body.appendChild(el("div", { cls:"role-what", text:r.what }));
+        if (r.subs.length) body.appendChild(el("div", { cls:"subs-row" }, [ el("span", { cls:"subs-lbl", text:"サブ" }), ...r.subs.map(x => actionFor(r, x, true)) ]));
         if (r.memo) body.appendChild(el("div", { cls:"role-memo", text:"メモ：" + r.memo }));
         const acts = el("div", { cls:"role-acts" }, [ actionFor(r) ]);
         const ed = el("button", { type:"button", cls:"mini", text:"直す" });
@@ -931,6 +960,10 @@ body[data-tab="副業"]{
   function openRoleSheet(r){
     editingRole = r;
     $("rName").value = r.name; $("rWhen").value = r.when; $("rWhat").value = r.what; $("rMemo").value = r.memo;
+    $("rSubs").replaceChildren(...OWNERS.filter(o => o !== r.owner && o !== "Gemini").map(o => {
+      const cb = el("input", { type:"checkbox", value:o }); cb.checked = r.subs.includes(o);
+      return el("label", { cls:"sub-check " + (OWNER_CLS[o] || "") }, [ cb, el("span", { text:o }) ]);
+    }));
     $("roleSheet").hidden = false; $("menuSheet").hidden = true;
     setTimeout(() => $("rName").focus(), 50);
   }
@@ -942,8 +975,8 @@ body[data-tab="副業"]{
     const name = clean($("rName").value);
     if (!name) { $("rName").focus(); return; }
     const when = clean($("rWhen").value), what = clean($("rWhat").value), memo = clean($("rMemo").value);
-    const indent = (r.raw.match(/^\s*/) || [""])[0];
-    const line = `${indent}- 【${r.owner}】${name}` + (when ? `｜いつ：${when}` : "") + (what ? `｜内容：${what}` : "") + (memo ? `｜メモ：${memo}` : "");
+    const subs = Array.from($("rSubs").querySelectorAll("input:checked")).map(x => x.value);
+    const line = buildRoleLine(r, { name, when, what, memo, subs });
     $("rSave").disabled = true;
     const ok = await saveRoles(lines => { const i = lines.indexOf(r.raw); if (i < 0) return false; lines[i] = line; return true; }, "直しました");
     $("rSave").disabled = false;
