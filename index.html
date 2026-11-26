@@ -320,12 +320,12 @@ body[data-tab="副業"]{
     <div class="wrap">
       <div class="tabs" role="group" aria-label="表示の切り替え">
         <button type="button" data-f="all">すべて</button>
-        <button type="button" data-f="本業">本業</button>
-        <button type="button" data-f="副業">副業</button>
+        <button type="button" data-f="本業">いきいき</button>
+        <button type="button" data-f="副業">講師</button>
       </div>
       <div class="swipe-hint">タスクを左にスライドすると、直したり、ほかの欄へ移したりできます</div>
       <div id="groups"></div>
-      <div class="legend"><span><i style="background:var(--hon)"></i>本業</span><span><i style="background:var(--fuku)"></i>副業</span></div>
+      <div class="legend"><span><i style="background:var(--hon)"></i>いきいき</span><span><i style="background:var(--fuku)"></i>講師</span></div>
     </div>
   </div>
   <div id="rolesView" hidden>
@@ -352,9 +352,9 @@ body[data-tab="副業"]{
   <h3 id="sheetTitle">思いついたことを入れる</h3>
   <input type="text" id="addInput" placeholder="例：〇〇様に見積もりを送る" autocomplete="off" enterkeyhint="done">
   <label class="due-row" for="dueInput"><span>締切（なくてもOK）</span><input type="date" id="dueInput"><button type="button" id="dueClear">消す</button></label>
-  <div class="kinds" role="group" aria-label="本業か副業か">
-    <button type="button" data-k="本業">本業</button>
-    <button type="button" data-k="副業">副業</button>
+  <div class="kinds" role="group" aria-label="いきいきか講師か">
+    <button type="button" data-k="本業">いきいき</button>
+    <button type="button" data-k="副業">講師</button>
   </div>
   <div class="kinds who" id="whoRow" role="group" aria-label="誰がやるか">
     <button type="button" data-w="me">自分でやる</button>
@@ -410,6 +410,8 @@ body[data-tab="副業"]{
   let busy = false, showDone = false, pending = null;
   let filter = store.get("filter") || "all";
   let addKind = store.get("addKind") || "副業";
+  // 画面での呼び名（ボードのファイルには【本業】【副業】のまま書く。ほかのAIのルールを変えないため）
+  const KIND_LABEL = { "本業":"いきいき", "副業":"講師" };
   let addWho = "me";
 
   const pad = n => String(n).padStart(2, "0");
@@ -591,7 +593,7 @@ body[data-tab="副業"]{
     }
     const body = el("div", { cls:"body" }, [ el("div", { cls:"ttl", text: it.title }) ]);
     const sub = el("div",{cls:"sub"});
-    if (it.kind) sub.appendChild(el("span",{cls:"tag "+k,text:it.kind}));
+    if (it.kind) sub.appendChild(el("span",{cls:"tag "+k,text:KIND_LABEL[it.kind] || it.kind}));
     if (!opts.done) { const d = dueInfo(it.fields["締切"]); if (d) sub.appendChild(el("span",{cls:"tag due",text:d})); }
     if (opts.stage) sub.appendChild(el("span",{cls:"tag stage",text:opts.stage}));
     if (opts.done) { const w = it.fields["完了"] || it.extra.join(" "); const m = w.match(/\d{4}-0?(\d+)-0?(\d+)/); sub.appendChild(document.createTextNode(m ? `${m[1]}/${m[2]} 完了` : w)); }
